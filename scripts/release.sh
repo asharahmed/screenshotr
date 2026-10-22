@@ -15,6 +15,9 @@ fail() { echo "release: $*" >&2; exit 1; }
 case "$GITHUB_REPO" in OWNER/*|"") fail "set GITHUB_REPO in packaging/release.env" ;; esac
 [ -f "$UPDATER_KEY" ] || fail "updater key not found at $UPDATER_KEY"
 security find-identity -v -p codesigning | grep -qF "\"$SIGNING_IDENTITY\"" || fail "signing identity \"$SIGNING_IDENTITY\" not in keychain"
+# Sign by fingerprint: the same certificate can sit in more than one keychain, which makes the
+# name ambiguous to codesign.
+SIGN_WITH=$(security find-identity -v -p codesigning | grep -F "\"$SIGNING_IDENTITY\"" | head -1 | awk '{print $2}')
 
 VERSION=$(python3 -c "import json;print(json.load(open('$ROOT/src-tauri/tauri.conf.json'))['package']['version'])")
 ARCH=aarch64
@@ -29,7 +32,7 @@ echo "==> Building"
 (cd "$ROOT" && cargo tauri build --bundles app --config "{\"tauri\":{\"updater\":{\"endpoints\":[\"$FEED\"]}}}")
 
 echo "==> Signing (hardened runtime, as notarization requires)"
-codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$APP"
+codesign --force --options runtime --timestamp --sign "$SIGN_WITH" "$APP"
 codesign --verify --strict --verbose=1 "$APP"
 
 echo "==> Notarizing the app"
@@ -51,7 +54,7 @@ cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Screenshotr" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
-codesign --force --timestamp --sign "$SIGNING_IDENTITY" "$DMG"
+codesign --force --timestamp --sign "$SIGN_WITH" "$DMG"
 xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$DMG"
 
