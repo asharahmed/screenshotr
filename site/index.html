@@ -18,6 +18,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Inter only stands in for SF Pro on systems that don't have it. -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.css" />
     <style>
       :root {
         color-scheme: light dark;
@@ -66,7 +67,8 @@
         box-sizing: border-box;
       }
 
-      html {
+      /* Native smooth scrolling only without Lenis; the two fight each other. */
+      html:not(.lenis) {
         scroll-behavior: smooth;
       }
 
@@ -118,8 +120,13 @@
         border-bottom-color: var(--line);
       }
 
+      nav.scrolled .wrap {
+        height: 54px;
+      }
+
       nav .wrap {
-        height: 60px;
+        height: 64px;
+        transition: height 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
         display: flex;
         align-items: center;
         gap: 28px;
@@ -250,6 +257,25 @@
         margin: clamp(44px, 7vw, 72px) auto 0;
         max-width: 980px;
         padding: 0 var(--gutter);
+        perspective: 1600px;
+      }
+
+      /* The demo Mac starts tipped back and rises to face you as it scrolls into view. */
+      .stage {
+        transform: rotateX(calc(var(--tilt, 0) * 1deg)) scale(var(--lift, 1));
+        transform-origin: 50% 0;
+        will-change: transform;
+      }
+
+      /* The hero copy drifts up and fades as the demo takes over. */
+      .hero.wrap {
+        opacity: calc(1 - var(--hero, 0) * 0.85);
+        transform: translateY(calc(var(--hero, 0) * -46px)) scale(calc(1 - var(--hero, 0) * 0.04));
+      }
+
+      [data-speed] {
+        transform: translateY(calc(var(--shift, 0) * 1px));
+        will-change: transform;
       }
 
       .stage {
@@ -987,6 +1013,47 @@
         color: var(--muted);
       }
 
+      /* Headings rise in word by word, softly blurred, the first time they're seen. */
+      .split .word {
+        display: inline-block;
+        opacity: 0;
+        filter: blur(8px);
+        transform: translateY(0.45em);
+        transition:
+          opacity 700ms ease calc(var(--i) * 55ms),
+          filter 700ms ease calc(var(--i) * 55ms),
+          transform var(--spring-gentle-duration, 900ms) var(--spring-gentle, ease-out) calc(var(--i) * 55ms);
+      }
+
+      .split.in .word {
+        opacity: 1;
+        filter: none;
+        transform: none;
+      }
+
+      /* Lists cascade in, one item after another. */
+      .stagger > * {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+        transition:
+          opacity 600ms ease calc(var(--i, 0) * 70ms + 80ms),
+          transform var(--spring-gentle-duration, 900ms) var(--spring-gentle, ease-out) calc(var(--i, 0) * 70ms + 80ms);
+      }
+
+      .stagger.in > * {
+        opacity: 1;
+        transform: none;
+      }
+
+      .destinations.stagger > * {
+        transition-delay: calc(var(--i, 0) * 28ms + 60ms);
+        transform: translateY(14px) scale(0.9);
+      }
+
+      .destinations.stagger.in > * {
+        transform: none;
+      }
+
       /* Elements that reveal once as they scroll into view. */
       .reveal {
         opacity: 0;
@@ -1031,9 +1098,19 @@
           scroll-behavior: auto;
         }
 
-        .reveal {
+        .reveal,
+        .stagger > *,
+        .split .word {
           opacity: 1;
           transform: none;
+          filter: none;
+        }
+
+        .stage,
+        .hero.wrap,
+        [data-speed] {
+          transform: none;
+          opacity: 1;
         }
 
         *,
@@ -1116,7 +1193,7 @@
           <h2>Not just screenshots. Anything.</h2>
           <p>Every way into Screenshotr ends the same way: one upload, one link on your clipboard, and an entry in your history.</p>
         </div>
-        <ul class="ways reveal">
+        <ul class="ways stagger">
           <li>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M16 5h4v4M20 15v4h-4M8 19H4v-4" /><path d="M12 15V9M9.5 11.5 12 9l2.5 2.5" /></svg>
             <b>Capture</b>
@@ -1150,11 +1227,11 @@
         </div>
 
         <div class="shots reveal">
-          <figure>
+          <figure data-speed="0.05">
             <img src="assets/history.png" alt="The Upload History window, with uploads grouped by day and two selected" loading="lazy" width="1520" height="1040" />
             <figcaption>Upload History keeps everything you've shared, searchable, with thumbnails. Copy or delete one or many at once.</figcaption>
           </figure>
-          <figure>
+          <figure data-speed="-0.06">
             <img src="assets/settings-general.png" alt="Screenshotr Settings, General tab" loading="lazy" width="1200" height="1040" />
             <figcaption>Settings follow your accent colour and dark mode, like the rest of macOS.</figcaption>
           </figure>
@@ -1166,14 +1243,14 @@
           <h2>Your storage, not ours.</h2>
           <p>Screenshotr has no server. Point it at what you already use, save as many destinations as you like, and switch with one click. Cloudflare R2 needs a single token; ShareX uploaders import from a file.</p>
         </div>
-        <ul class="destinations reveal" id="destinations"></ul>
+        <ul class="destinations stagger" id="destinations"></ul>
       </section>
 
       <section id="privacy" class="wrap">
         <div class="section-head reveal">
           <h2>Private by design.</h2>
         </div>
-        <ul class="promises reveal">
+        <ul class="promises stagger">
           <li><b>Nothing in between</b><span>Files go straight from your Mac to your destination. There's no Screenshotr account, server or analytics.</span></li>
           <li><b>Keys in the Keychain</b><span>Credentials live in your login Keychain, never in a plain-text settings file.</span></li>
           <li><b>Only when you ask</b><span>Screenshotr looks at your screen when you take a shot, and at nothing else.</span></li>
@@ -1193,7 +1270,7 @@
               <button type="button" id="copy-brew">Copy</button>
             </div>
           </div>
-          <img class="icon" src="assets/icon.png" alt="" width="180" height="180" loading="lazy" />
+          <img class="icon" src="assets/icon.png" alt="" width="180" height="180" loading="lazy" data-speed="-0.12" />
         </div>
       </div>
     </main>
@@ -1208,16 +1285,82 @@
       </div>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
     <script src="assets/motion.js"></script>
     <script src="assets/destination-icons.js"></script>
     <script>
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-      // ---- Navigation border once the page scrolls ----
-      const nav = document.getElementById("nav");
-      addEventListener("scroll", () => nav.classList.toggle("scrolled", scrollY > 8), { passive: true });
+      // ---- Inertial scrolling (wheel and trackpad; touch keeps native momentum) ----
+      let lenis = null;
+      if (!reduce.matches && window.Lenis) {
+        lenis = new Lenis({ duration: 1.2, easing: (t) => 1 - Math.pow(1 - t, 4), wheelMultiplier: 0.95 });
+        const raf = (time) => {
+          lenis.raf(time);
+          requestAnimationFrame(raf);
+        };
+        requestAnimationFrame(raf);
+        // In-page links glide too, stopping clear of the sticky navigation.
+        document.querySelectorAll('a[href^="#"]').forEach((link) =>
+          link.addEventListener("click", (event) => {
+            const target = document.querySelector(link.getAttribute("href"));
+            if (!target) return;
+            event.preventDefault();
+            lenis.scrollTo(target, { offset: -72, duration: 1.4 });
+          })
+        );
+      }
 
-      // ---- Reveal sections once ----
+      // ---- Scroll-driven effects, computed once per frame ----
+      const nav = document.getElementById("nav");
+      const hero = document.querySelector(".hero");
+      const stageEl = document.getElementById("stage");
+      const movers = [...document.querySelectorAll("[data-speed]")];
+      const clamp = (value) => Math.min(1, Math.max(0, value));
+      let lastY = -1;
+
+      function effects() {
+        const y = scrollY;
+        if (y !== lastY) {
+          lastY = y;
+          nav.classList.toggle("scrolled", y > 8);
+          if (!reduce.matches) {
+            const vh = innerHeight;
+            hero.style.setProperty("--hero", clamp(y / (hero.offsetHeight * 1.1)).toFixed(4));
+            // The stage is tipped back until its top reaches ~30% of the viewport.
+            const top = stageEl.getBoundingClientRect().top;
+            const rise = clamp((vh * 0.95 - top) / (vh * 0.65));
+            stageEl.style.setProperty("--tilt", (16 * (1 - rise)).toFixed(3));
+            stageEl.style.setProperty("--lift", (0.93 + 0.07 * rise).toFixed(4));
+            for (const node of movers) {
+              const box = node.getBoundingClientRect();
+              const offset = (box.top + box.height / 2 - vh / 2) * Number(node.dataset.speed);
+              node.style.setProperty("--shift", offset.toFixed(2));
+            }
+          }
+        }
+        requestAnimationFrame(effects);
+      }
+      requestAnimationFrame(effects);
+
+      // ---- Headings split into words for their reveal ----
+      document.querySelectorAll("section h2, .install h2").forEach((heading) => {
+        const words = heading.textContent.trim().split(/\s+/);
+        heading.setAttribute("aria-label", heading.textContent.trim());
+        heading.replaceChildren(
+          ...words.flatMap((word, index) => {
+            const span = document.createElement("span");
+            span.className = "word";
+            span.setAttribute("aria-hidden", "true");
+            span.style.setProperty("--i", index);
+            span.textContent = word;
+            return index < words.length - 1 ? [span, " "] : [span];
+          })
+        );
+        heading.classList.add("split");
+      });
+
+      // ---- Reveal blocks, headings and lists the first time they're seen ----
       const revealer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
@@ -1228,7 +1371,8 @@
         },
         { rootMargin: "0px 0px -12% 0px" }
       );
-      document.querySelectorAll(".reveal").forEach((node) => revealer.observe(node));
+      document.querySelectorAll(".stagger").forEach((list) => [...list.children].forEach((item, index) => item.style.setProperty("--i", index)));
+      document.querySelectorAll(".reveal, .split, .stagger").forEach((node) => revealer.observe(node));
 
       // ---- The demo ----
       const stage = document.getElementById("stage");
@@ -1411,6 +1555,7 @@
         mark.className = `mark ${brand ? "brand" : "glyph"}`;
         mark.append(svg);
         const item = document.createElement("li");
+        item.style.setProperty("--i", list.children.length);
         item.append(mark, name);
         list.append(item);
       }
