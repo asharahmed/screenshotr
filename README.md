@@ -7,12 +7,21 @@
 <p align="center">Press a shortcut, get a link.</p>
 
 <p align="center">
+  <a href="https://screenshotr.aahmed.ca"><img alt="Website" src="https://img.shields.io/badge/website-screenshotr.aahmed.ca-2a7bff?style=flat-square"></a>
+  <img alt="macOS 13 or later" src="https://img.shields.io/badge/macOS-13%2B-1c1f27?style=flat-square&logo=apple&logoColor=white">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-1c1f27?style=flat-square">
+  <img alt="Built with Tauri and Rust" src="https://img.shields.io/badge/built%20with-Tauri%20%2B%20Rust-24c8db?style=flat-square&logo=tauri&logoColor=white">
+  <img alt="12 destinations" src="https://img.shields.io/badge/destinations-12-2fb35a?style=flat-square">
+  <a href="LICENSE.md"><img alt="License: PolyForm Noncommercial 1.0.0" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-6e56cf?style=flat-square"></a>
+</p>
+
+<p align="center">
   <img src="docs/images/overlay.png" width="400" alt="The overlay that appears after a capture, showing “Link copied” and the short link">
 </p>
 
-Screenshotr is a menu bar app for macOS. Take a screenshot with the usual shortcut and, a moment later, a link to it is on your clipboard. It uploads to storage you already have, whether that's an S3 bucket, a Nextcloud server, an SFTP folder, an image host or anything with a ShareX uploader, and it does the same for any file you drop on it.
+Screenshotr is a menu bar app for macOS ([screenshotr.aahmed.ca](https://screenshotr.aahmed.ca)). Take a screenshot with the usual shortcut and, a moment later, a link to it is on your clipboard. It uploads to storage you already have, whether that's an S3 bucket, a Nextcloud server, an SFTP folder, an image host or anything with a ShareX uploader, and it does the same for any file you drop on it.
 
-It's built to feel like part of macOS: a Liquid Glass overlay, the system's own capture sound, Settings that follow your accent colour and dark mode, and a menu bar icon that shows what it's doing.
+It's built to feel like part of macOS: a Liquid Glass overlay, its own capture sound, Settings that follow your accent colour and dark mode, and a menu bar icon that shows what it's doing.
 
 ## Contents
 
@@ -78,7 +87,7 @@ While it runs, Screenshotr turns off macOS's own ⇧⌘3 and ⇧⌘4 screenshot 
 
 The menu bar menu also has Upload Files…, Copy last link, Recent uploads, Settings and an update item when there's a new version. Change any shortcut in Settings › General by clicking it and pressing the new keys.
 
-After each capture you can keep a copy in Pictures › Screenshotr. If an upload fails, the capture is saved there anyway, so nothing is lost.
+Each capture plays a short sound of its own (made by `src-tauri/sounds/make_capture_sound.py`). It follows the "Play user interface sound effects" setting in System Settings, and Settings › General can turn it off. After each capture you can keep a copy in Pictures › Screenshotr. If an upload fails, the capture is saved there anyway, so nothing is lost.
 
 <p align="center">
   <img src="docs/images/settings-general.png" width="480" alt="Settings, General tab: status, shortcuts, Copy as, and options after each capture">
@@ -168,6 +177,8 @@ Updates are signed with a separate key, `~/.tauri/screenshotr.key`, made by `car
 | `src/welcome.html` | The first-run welcome window |
 | `src/motion.js` | Spring animation shared by all windows |
 | `src-tauri/icons/` | App and menu bar icons, with the Swift scripts that draw them |
+| `src-tauri/sounds/` | The capture sound and the script that synthesizes it |
+| `site/` | The website, published to GitHub Pages by `.github/workflows/pages.yml` |
 | `scripts/`, `packaging/` | Install, release and Homebrew files |
 
 Windows and Linux capture code exists from an earlier version but is untested, and the interface is designed for macOS.
@@ -178,4 +189,6 @@ Service logos in Settings come from [Simple Icons](https://simpleicons.org) (CC0
 
 ## License
 
-Not chosen yet. Until a license is added, the code is shared for reference only and all rights are reserved.
+Screenshotr is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may read, run and modify it for any noncommercial purpose: personal use, study, research, hobby projects, and use by charities, schools and public institutions. Commercial use of any kind, including selling it, offering it as a service, or using any part of the code in a commercial product, is not permitted.
+
+For commercial licensing, contact Ashar Ahmed.

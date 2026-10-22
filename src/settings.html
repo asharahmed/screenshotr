@@ -1168,6 +1168,13 @@
             </div>
             <input class="switch" type="checkbox" id="retain_local_copy" data-key="retain_local_copy" />
           </div>
+          <div class="row">
+            <div>
+              <label for="play_sound">Play capture sound</label>
+              <p class="sub">Follows the sound effects setting in System Settings. <button class="link" id="preview-sound">Play</button></p>
+            </div>
+            <input class="switch" type="checkbox" id="play_sound" data-key="play_sound" />
+          </div>
           <div class="row" id="login-row">
             <label for="open_at_login">Open at login</label>
             <input class="switch" type="checkbox" id="open_at_login" data-key="open_at_login" />
@@ -2295,6 +2302,7 @@
       }
 
       document.getElementById("open-pictures").addEventListener("click", () => invoke("open_pictures_folder"));
+      document.getElementById("preview-sound").addEventListener("click", () => invoke("preview_capture_sound"));
 
       // ---- Shortcut recorder -----------------------------------------------------------------
 

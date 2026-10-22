@@ -2,7 +2,10 @@
 name = "screenshotr"
 version = "0.1.0"
 description = "Cross-platform screenshot hotkey override and uploader"
-authors = ["you"]
+authors = ["Ashar Ahmed"]
+license-file = "../LICENSE.md"
+repository = "https://github.com/asharahmed/screenshotr"
+homepage = "https://screenshotr.aahmed.ca"
 edition = "2021"
 
 [build-dependencies]

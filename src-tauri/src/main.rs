@@ -87,6 +87,8 @@ struct AppConfig {
   link_format: String,
   /// Look for a new version once a day.
   check_updates: bool,
+  /// Play Screenshotr's capture sound (only when macOS sound effects are on too).
+  play_sound: bool,
 }
 
 impl Default for AppConfig {
@@ -108,6 +110,7 @@ impl Default for AppConfig {
       hotkey_clipboard: String::new(),
       link_format: "url".to_string(),
       check_updates: true,
+      play_sound: true,
     }
   }
 }
@@ -329,7 +332,8 @@ fn main() {
       upload_files,
       upload_chooser,
       check_for_update,
-      install_update
+      install_update,
+      preview_capture_sound
     ])
     .build(tauri::generate_context!())
     .expect("error while running tauri application");
@@ -633,6 +637,9 @@ fn capture_upload_and_copy(app: &AppHandle, mode: CaptureMode) -> Result<()> {
     return Ok(());
   };
   println!("[capture] bytes captured: {}", capture.bytes.len());
+  if config.play_sound {
+    play_capture_sound(app);
+  }
 
   let thumb = thumbnail_data_url(&capture.bytes).ok();
   let kept = if config.retain_local_copy { save_to_pictures(&capture.bytes).ok() } else { None };
@@ -1461,8 +1468,8 @@ fn capture_screenshot(mode: CaptureMode) -> Result<Option<CaptureResult>> {
     println!("[capture][macos] running screencapture");
     let path = temp_png_path();
     let mut cmd = Command::new("screencapture");
-    // No -x: macOS plays its own capture sound, and only when sound effects are on.
-    cmd.arg("-t").arg("png");
+    // -x: Screenshotr plays its own capture sound instead of the system's.
+    cmd.arg("-x").arg("-t").arg("png");
     if matches!(mode, CaptureMode::Area) {
       cmd.arg("-i");
     }
@@ -2426,6 +2433,51 @@ fn describe_update_error(error: &str) -> String {
   } else {
     format!("Couldn't check for updates: {error}")
   }
+}
+
+const CAPTURE_SOUND: &[u8] = include_bytes!("../sounds/capture.wav");
+
+/// Plays Screenshotr's own capture sound, made by sounds/make_capture_sound.py. Like system
+/// sounds, it stays quiet when "Play user interface sound effects" is off in System Settings.
+fn play_capture_sound(app: &AppHandle) {
+  #[cfg(target_os = "macos")]
+  {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    // One NSSound for the life of the app; only touched on the main thread.
+    static SOUND: AtomicUsize = AtomicUsize::new(0);
+    let _ = app.run_on_main_thread(|| unsafe {
+      use cocoa::base::{id, nil};
+      let defaults: id = msg_send![class!(NSUserDefaults), standardUserDefaults];
+      let key: id = msg_send![class!(NSString), stringWithUTF8String: "com.apple.sound.uiaudio.enabled\0".as_ptr()];
+      let setting: id = msg_send![defaults, objectForKey: key];
+      if setting != nil {
+        let enabled: bool = msg_send![setting, boolValue];
+        if !enabled {
+          return;
+        }
+      }
+      let mut sound = SOUND.load(Ordering::Relaxed) as id;
+      if sound.is_null() {
+        let data: id = msg_send![class!(NSData), dataWithBytes: CAPTURE_SOUND.as_ptr() length: CAPTURE_SOUND.len()];
+        let created: id = msg_send![class!(NSSound), alloc];
+        sound = msg_send![created, initWithData: data];
+        if sound.is_null() {
+          return;
+        }
+        SOUND.store(sound as usize, Ordering::Relaxed);
+      }
+      let _: bool = msg_send![sound, stop];
+      let _: bool = msg_send![sound, play];
+    });
+  }
+  #[cfg(not(target_os = "macos"))]
+  let _ = app;
+}
+
+/// Lets Settings preview the sound.
+#[tauri::command]
+fn preview_capture_sound(app: AppHandle) {
+  play_capture_sound(&app);
 }
 
 /// Opens and closes with the system's document-window animation instead of appearing abruptly.
