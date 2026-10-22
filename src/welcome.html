@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Screenshotr</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --window: #f2f2f4;
+        --group: #ffffff;
+        --ink: #17191d;
+        --ink: -apple-system-label;
+        --muted: #6b7079;
+        --muted: -apple-system-secondary-label;
+        --hairline: #e3e5e9;
+        --hairline: -apple-system-separator;
+        --field: #ffffff;
+        --field: -apple-system-text-background;
+        --field-line: #d3d6db;
+        --key: #f6f7f9;
+        --key-line: #cdd0d6;
+        --key-shadow: #b9bdc4;
+        --success: #23905a;
+        --success: -apple-system-green;
+        --accent: #0a84ff;
+        --accent: -apple-system-control-accent;
+        --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --rounded: ui-rounded, "SF Pro Rounded", -apple-system, sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --window: #1e1e20;
+          --group: #2a2a2d;
+          --field: #232326;
+          --field-line: #3d4046;
+          --key: #333539;
+          --key-line: #45484e;
+          --key-shadow: #17181a;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: var(--window);
+        color: var(--ink);
+        font: 13px/18px var(--sans);
+        -webkit-font-smoothing: antialiased;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+      }
+
+      :focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        outline-offset: 1px;
+        animation: focus-ring 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      /* Focus rings settle in from slightly larger, like AppKit's. */
+      @keyframes focus-ring {
+        from {
+          outline-offset: 7px;
+          outline-color: transparent;
+        }
+      }
+
+      /* An inactive window drops its accent colour, as AppKit controls do. */
+      body.inactive {
+        --accent: #a1a1a6;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body.inactive {
+          --accent: #6f6f74;
+        }
+      }
+
+      .titlebar {
+        flex: none;
+        height: 28px;
+      }
+
+      header {
+        padding: 18px 40px 26px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      /* The viewfinder closes in on the wordmark once, when the window opens. */
+      .viewfinder {
+        position: relative;
+        padding: 18px 30px;
+      }
+
+      .viewfinder i {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        border: 0 solid var(--ink);
+        transition: transform var(--spring-gentle-duration, 700ms) var(--spring-gentle, ease-out) 120ms;
+      }
+
+      .viewfinder .tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 3px; transform: translate(-22px, -14px); }
+      .viewfinder .tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 3px; transform: translate(22px, -14px); }
+      .viewfinder .bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 3px; transform: translate(-22px, 14px); }
+      .viewfinder .br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 3px; transform: translate(22px, 14px); }
+
+      .ready .viewfinder i {
+        transform: none;
+      }
+
+      h1 {
+        margin: 0;
+        font: 800 30px/1 var(--rounded);
+        letter-spacing: -0.02em;
+      }
+
+      .tagline {
+        margin: 18px 0 0;
+        font-size: 15px;
+        line-height: 21px;
+        color: var(--muted);
+      }
+
+      main {
+        flex: 1;
+        padding: 0 32px;
+      }
+
+      .steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: step;
+        background: var(--group);
+        border: 1px solid var(--hairline);
+        border-radius: 14px;
+      }
+
+      .step {
+        counter-increment: step;
+        position: relative;
+        padding: 14px 14px 14px 52px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .step + .step {
+        border-top: 1px solid var(--hairline);
+      }
+
+      /* Number badge; becomes a drawn check when the step is done. */
+      .badge {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        width: 24px;
+        height: 24px;
+        margin-top: -12px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        border: 1px solid var(--key-line);
+        background: var(--key);
+        font: 600 12px/1 var(--rounded);
+        transition:
+          background-color 240ms ease,
+          border-color 240ms ease;
+      }
+
+      .badge .num,
+      .badge .check {
+        grid-area: 1 / 1;
+      }
+
+      .badge .check {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: #fff;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .step[data-done="true"] .badge {
+        border-color: var(--success);
+        background: var(--success);
+      }
+
+      .step[data-done="true"] .num {
+        visibility: hidden;
+      }
+
+      /* A ring that pulses out from a badge as its step completes. */
+      .ring {
+        position: absolute;
+        inset: -1px;
+        border-radius: 50%;
+        border: 2px solid var(--success);
+        pointer-events: none;
+      }
+
+      .button {
+        transition:
+          transform var(--spring-snappy-duration, 200ms) var(--spring-snappy, ease-out),
+          filter 140ms ease;
+      }
+
+      .button:active {
+        transform: scale(0.95);
+      }
+
+      .step .copy {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .step h2 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .step p {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 16px;
+      }
+
+      .status {
+        color: var(--success);
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .button {
+        flex: none;
+        height: 28px;
+        padding: 0 14px;
+        border: 1px solid var(--field-line);
+        border-radius: 999px;
+        background: var(--field);
+        white-space: nowrap;
+      }
+
+      .button:active {
+        filter: brightness(0.95);
+      }
+
+      .button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      kbd {
+        min-width: 24px;
+        height: 22px;
+        padding: 0 6px;
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid var(--key-line);
+        border-radius: 6px;
+        background: var(--key);
+        box-shadow: 0 1px 0 var(--key-shadow);
+        font: 500 12px/1 var(--sans);
+      }
+
+      .keys {
+        display: flex;
+        gap: 4px;
+      }
+
+      footer {
+        flex: none;
+        padding: 18px 32px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .login {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      .switch {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 36px;
+        height: 20px;
+        margin: 0;
+        border-radius: 10px;
+        background: var(--field-line);
+        position: relative;
+        transition: background 160ms ease;
+      }
+
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        transition: transform 160ms ease;
+      }
+
+      .switch:checked {
+        background: var(--accent);
+      }
+
+      .switch:checked::after {
+        transform: translateX(16px);
+      }
+
+      .switch::after {
+        transition:
+          transform var(--spring-bouncy-duration, 200ms) var(--spring-bouncy, ease-out),
+          width 160ms ease;
+      }
+
+      .switch:active::after {
+        width: 19px;
+      }
+
+      .switch:checked:active::after {
+        transform: translateX(13px);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="titlebar" data-tauri-drag-region></div>
+    <header>
+      <div class="viewfinder" aria-hidden="true">
+        <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
+        <h1>Screenshotr</h1>
+      </div>
+      <p class="tagline">Press a shortcut, get a link.<br />Three steps and you're set.</p>
+    </header>
+
+    <main>
+      <ol class="steps">
+        <li class="step" id="step-permission">
+          <span class="badge" aria-hidden="true"><span class="num">1</span></span>
+          <div class="copy">
+            <h2>Allow screen recording</h2>
+            <p id="permission-text">macOS asks once. Screenshotr only sees your screen when you take a shot.</p>
+          </div>
+          <button class="button" id="permission-action">Allow…</button>
+          <span class="status" id="permission-status" hidden>Allowed</span>
+        </li>
+        <li class="step" id="step-destination">
+          <span class="badge" aria-hidden="true"><span class="num">2</span></span>
+          <div class="copy">
+            <h2>Choose where screenshots go</h2>
+            <p id="destination-text">An image host, cloud storage or your own server.</p>
+          </div>
+          <button class="button" id="destination-action">Choose…</button>
+        </li>
+        <li class="step" id="step-try">
+          <span class="badge" aria-hidden="true"><span class="num">3</span></span>
+          <div class="copy">
+            <h2>Take your first screenshot</h2>
+            <p id="try-text">Press the shortcut and drag over an area. The link lands on your clipboard.</p>
+          </div>
+          <span class="keys" id="try-keys"></span>
+          <span class="status" id="try-status" hidden>Link copied</span>
+        </li>
+      </ol>
+    </main>
+
+    <footer>
+      <label class="login" id="login-row">
+        <input class="switch" type="checkbox" id="open-at-login" />
+        Open at login
+      </label>
+      <button class="button primary" id="done">Done</button>
+    </footer>
+
+    <script src="motion.js"></script>
+    <script>
+      const tauri = window.__TAURI__;
+      window.addEventListener("blur", () => document.body.classList.add("inactive"));
+      window.addEventListener("focus", () => document.body.classList.remove("inactive"));
+      const { animate, cascade, roll, draw, checkmark } = window.Motion;
+      const invoke = tauri.invoke || (tauri.tauri && tauri.tauri.invoke);
+      const appWindow = tauri.window.appWindow;
+      const SYMBOLS = { cmd: "⌘", command: "⌘", super: "⌘", ctrl: "⌃", control: "⌃", alt: "⌥", option: "⌥", shift: "⇧" };
+      const ORDER = ["⌃", "⌥", "⇧", "⌘"];
+
+      let askedForPermission = false;
+
+      let firstRefresh = true;
+
+      function setDone(step, done) {
+        const item = document.getElementById(`step-${step}`);
+        const badge = item.querySelector(".badge");
+        const completed = done && item.dataset.done !== "true";
+        item.dataset.done = String(done);
+        if (!done) {
+          badge.querySelector(".check")?.remove();
+          return;
+        }
+        if (!completed) return;
+        const check = checkmark("check");
+        badge.append(check);
+        // Celebrate only steps finished while the window is open, not ones already done.
+        if (firstRefresh) return;
+        animate(badge, [{ transform: "scale(0.6)" }, { transform: "none" }], { spring: "bouncy" });
+        draw(check.querySelector("path"), { delay: 90 });
+        const ring = document.createElement("span");
+        ring.className = "ring";
+        badge.append(ring);
+        const pulse = animate(ring, [{ transform: "scale(1)", opacity: 0.6 }, { transform: "scale(2.1)", opacity: 0 }], {
+          duration: 700,
+          easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+          fill: "forwards",
+        });
+        (pulse ? pulse.finished : Promise.resolve()).then(() => ring.remove(), () => ring.remove());
+      }
+
+      function renderKeys(hotkey) {
+        const parts = (hotkey || "").split("+").filter(Boolean).map((part) => SYMBOLS[part.toLowerCase()] || part.toUpperCase());
+        parts.sort((a, b) => (ORDER.includes(a) ? ORDER.indexOf(a) : 9) - (ORDER.includes(b) ? ORDER.indexOf(b) : 9));
+        document.getElementById("try-keys").replaceChildren(
+          ...parts.map((part) => Object.assign(document.createElement("kbd"), { textContent: part }))
+        );
+      }
+
+      async function refresh() {
+        const [status, config] = await Promise.all([invoke("get_status"), invoke("get_config")]);
+
+        const permissionAction = document.getElementById("permission-action");
+        setDone("permission", status.screen_recording);
+        permissionAction.hidden = status.screen_recording;
+        document.getElementById("permission-status").hidden = !status.screen_recording;
+        if (!status.screen_recording && askedForPermission) {
+          // macOS only applies the new permission after a restart.
+          document.getElementById("permission-text").textContent = "Turn on Screenshotr in System Settings, then reopen it here.";
+          permissionAction.textContent = "Reopen Screenshotr";
+        }
+
+        setDone("destination", status.configured);
+        document.getElementById("destination-text").textContent = status.configured
+          ? `Uploading to ${status.destination_name}.`
+          : "An image host, cloud storage or your own server.";
+        document.getElementById("destination-action").textContent = status.configured ? "Change…" : "Choose…";
+        roll(document.getElementById("done"), status.configured ? "Done" : "Later");
+
+        renderKeys(config.hotkey_area);
+        firstRefresh = false;
+        document.getElementById("open-at-login").checked = Boolean(config.open_at_login);
+        document.getElementById("login-row").hidden = status.platform !== "macos";
+      }
+
+      document.getElementById("permission-action").addEventListener("click", async () => {
+        if (askedForPermission) return invoke("relaunch_app");
+        askedForPermission = true;
+        await invoke("request_screen_recording");
+        refresh();
+      });
+
+      document.getElementById("destination-action").addEventListener("click", () => invoke("open_settings", { tab: "storage" }));
+
+      document.getElementById("open-at-login").addEventListener("change", async (event) => {
+        try {
+          await invoke("set_config", { changes: { open_at_login: event.target.checked } });
+        } catch {
+          event.target.checked = !event.target.checked;
+        }
+      });
+
+      document.getElementById("done").addEventListener("click", () => invoke("finish_onboarding"));
+
+      // Arrival: the viewfinder closes on the wordmark, then the rest settles in from the top down.
+      function playEntrance() {
+        document.body.classList.add("ready");
+        animate(document.querySelector("h1"), [{ opacity: 0, transform: "scale(0.94)" }, { opacity: 1, transform: "none" }], { spring: "gentle" });
+        cascade([document.querySelector(".tagline")], { from: "translateY(10px)", delay: 260 });
+        // The box arrives first, then its rows settle inside it.
+        cascade([document.querySelector(".steps")], { from: "translateY(16px) scale(0.98)", delay: 320 });
+        cascade(document.querySelectorAll(".step"), { from: "translateY(8px)", step: 70, delay: 400 });
+        cascade([document.querySelector("footer")], { from: "translateY(8px)", delay: 600 });
+      }
+
+      tauri.event.listen("upload-finished", () => {
+        setDone("try", true);
+        document.getElementById("try-keys").hidden = true;
+        const status = document.getElementById("try-status");
+        status.hidden = false;
+        animate(status, [{ opacity: 0, transform: "translateX(8px)" }, { opacity: 1, transform: "none" }], { spring: "bouncy" });
+        roll(document.getElementById("try-text"), "That's it. Every capture works the same way.");
+      });
+
+      window.addEventListener("focus", () => refresh().catch(() => {}));
+      setInterval(() => refresh().catch(() => {}), 2000);
+
+      refresh()
+        .catch(() => {})
+        .finally(async () => {
+          await appWindow.show();
+          await appWindow.setFocus();
+          requestAnimationFrame(() => requestAnimationFrame(playEntrance));
+        });
+    </script>
+  </body>
+</html>

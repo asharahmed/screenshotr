@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screenshotr</title>
+    <style>
+      /* Content for a Liquid Glass panel drawn by the app; the page itself stays transparent. */
+      :root {
+        color-scheme: light dark;
+        --text: -apple-system-label;
+        --soft: -apple-system-secondary-label;
+        --hairline: -apple-system-separator;
+        --corner: -apple-system-label;
+        --success: -apple-system-green;
+        --danger: -apple-system-red;
+        --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --rounded: ui-rounded, "SF Pro Rounded", -apple-system, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+
+      body {
+        font: 13px/17px var(--sans);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .card {
+        position: relative;
+        height: 100%;
+        padding: 0 18px 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .card[data-action]:not([data-action="none"]) {
+        cursor: pointer;
+      }
+
+      /* Thumbnail inside viewfinder corners. While uploading the corners stand off the shot;
+         when the link lands they close in on it. This is the one animated moment in the app. */
+      .frame {
+        position: relative;
+        flex: none;
+        width: 80px;
+        height: 54px;
+        display: grid;
+        place-items: center;
+      }
+
+      .frame img {
+        max-width: 72px;
+        max-height: 46px;
+        border-radius: 4px;
+        box-shadow: 0 0 0 0.5px var(--hairline), 0 1px 3px rgba(0, 0, 0, 0.18);
+      }
+
+      .frame img[hidden],
+      .glyph[hidden] {
+        display: none;
+      }
+
+      .glyph {
+        width: 24px;
+        height: 24px;
+        stroke: var(--soft);
+        fill: none;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* Close button: appears on hover, in the free top-right corner (the window clips anything outside). */
+      .close {
+        position: absolute;
+        top: 7px;
+        right: 8px;
+        z-index: 3;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        border: 0.5px solid var(--hairline);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--text) 14%, transparent);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        opacity: 0;
+        transform: scale(0.6);
+        transition:
+          opacity 160ms ease,
+          transform var(--spring-bouncy-duration, 300ms) var(--spring-bouncy, ease-out),
+          background-color 120ms ease;
+      }
+
+      .close svg {
+        width: 8px;
+        height: 8px;
+        stroke: var(--text);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+      }
+
+      .card:hover .close {
+        opacity: 1;
+        transform: none;
+      }
+
+      .close:hover {
+        background: color-mix(in srgb, var(--text) 24%, transparent);
+      }
+
+      .card.dragging {
+        cursor: grabbing;
+      }
+
+      .flash {
+        position: absolute;
+        inset: 4px;
+        border-radius: 4px;
+        background: #fff;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* The corners sit in their own layer so they can breathe without moving the shot. */
+      .corners {
+        position: absolute;
+        inset: 0;
+      }
+
+      .card[data-phase="uploading"] .corners {
+        animation: breathe 1.3s ease-in-out infinite;
+      }
+
+      @keyframes breathe {
+        50% {
+          transform: scale(1.07);
+        }
+      }
+
+      .frame i {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border: 0 solid var(--corner);
+        transition:
+          transform var(--spring-bouncy-duration, 300ms) var(--spring-bouncy, ease-out),
+          border-color 220ms ease;
+      }
+
+      .frame .tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-top-left-radius: 2px; transform: translate(-3px, -3px); }
+      .frame .tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-top-right-radius: 2px; transform: translate(3px, -3px); }
+      .frame .bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-bottom-left-radius: 2px; transform: translate(-3px, 3px); }
+      .frame .br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-bottom-right-radius: 2px; transform: translate(3px, 3px); }
+
+      .card[data-phase="done"] .frame i {
+        transform: none;
+        border-color: var(--success);
+      }
+
+      .card[data-phase="error"] .frame i {
+        transform: none;
+        border-color: var(--danger);
+      }
+
+      .text {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .title {
+        margin: 0;
+        font: 600 14px/18px var(--rounded);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .message {
+        margin: 2px 0 0;
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 16px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .message.link {
+        font-family: var(--mono);
+        font-size: 11px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        display: block;
+      }
+
+      /* Indeterminate progress along the bottom edge while uploading. */
+      .progress {
+        position: absolute;
+        left: 22px;
+        right: 22px;
+        bottom: 0;
+        height: 2px;
+        overflow: hidden;
+        opacity: 0;
+        transition: opacity 200ms ease;
+      }
+
+      .progress::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        border-radius: 1px;
+        background: linear-gradient(90deg, transparent, var(--soft), transparent);
+        animation: sweep 1.1s ease-in-out infinite;
+      }
+
+      .card[data-phase="uploading"] .progress {
+        opacity: 1;
+      }
+
+      @keyframes sweep {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(250%); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .frame i {
+          transition: none;
+        }
+        .card[data-phase="uploading"] .corners {
+          animation: none;
+        }
+        .progress::after {
+          animation: none;
+          left: 0;
+          width: 100%;
+          opacity: 0.4;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card" id="card" role="status" aria-live="polite">
+      <button class="close" id="close" aria-label="Dismiss">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" /></svg>
+      </button>
+      <div class="frame">
+        <img id="thumb" alt="" hidden />
+        <span class="flash" aria-hidden="true"></span>
+        <svg class="glyph" id="glyph" viewBox="0 0 24 24" aria-hidden="true"></svg>
+        <span class="corners" aria-hidden="true"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></span>
+      </div>
+      <div class="text">
+        <p class="title" id="title"></p>
+        <p class="message" id="message"></p>
+      </div>
+      <div class="progress" aria-hidden="true"></div>
+    </div>
+
+    <script src="motion.js"></script>
+    <script>
+      const tauri = window.__TAURI__;
+      const invoke = tauri.invoke || (tauri.tauri && tauri.tauri.invoke);
+      const { animate, shake, roll } = window.Motion;
+      const card = document.getElementById("card");
+      const thumb = document.getElementById("thumb");
+      const glyph = document.getElementById("glyph");
+      const title = document.getElementById("title");
+      const message = document.getElementById("message");
+      const corners = document.querySelector(".corners");
+      const GLYPHS = {
+        link: '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
+        alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/>',
+        file: '<path d="M6.5 3h7l4.5 4.5V19a2 2 0 0 1-2 2h-9.5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M13.5 3v4.5H18"/>',
+      };
+      // What a click does, shown while the pointer is over the overlay.
+      const HINTS = {
+        open_link: "Click to open the link",
+        reveal_file: "Click to show it in Finder",
+        open_storage_settings: "Click to open Settings",
+        open_screen_recording_settings: "Click to open System Settings",
+        open_keyboard_settings: "Click to open Keyboard settings",
+      };
+      const DISMISS_AFTER = { done: 3200, error: 9000 };
+
+      let current = null;
+      let timer = null;
+      let hovering = false;
+
+      function render(state) {
+        if (!state || !state.phase) return;
+        // An update to the same overlay (uploading → result) rolls; a new overlay starts fresh.
+        const continuing = current && state.seq === current.seq + 1 && current.phase === "uploading";
+        const previousPhase = current?.phase;
+        current = state;
+        card.dataset.phase = state.phase;
+        card.dataset.action = state.action;
+
+        // Only a copied link is set in the monospaced style, and only from the moment it appears.
+        const isLink = state.phase === "done" && state.action === "open_link";
+        const setLinkStyle = () => message.classList.toggle("link", isLink);
+        if (continuing) {
+          roll(title, state.title);
+          roll(message, hovering && HINTS[state.action] ? HINTS[state.action] : state.message, setLinkStyle);
+        } else {
+          title.textContent = state.title;
+          message.textContent = state.message;
+          setLinkStyle();
+        }
+
+        const freshImage = state.thumb && thumb.getAttribute("src") !== state.thumb;
+        if (state.thumb) {
+          thumb.src = state.thumb;
+          thumb.hidden = false;
+          glyph.hidden = true;
+        } else {
+          thumb.hidden = true;
+          glyph.hidden = false;
+          glyph.innerHTML = state.phase === "error" ? GLYPHS.alert : state.kind === "file" ? GLYPHS.file : GLYPHS.link;
+        }
+
+        if (!continuing) {
+          // A new shot: the shutter flashes and the image settles into the frame.
+          // The window takes ~200 ms to become visible as it slides in; land the details after that.
+          if (freshImage) {
+            animate(document.querySelector(".flash"), [{ opacity: 0.95 }, { opacity: 0 }], { duration: 460, easing: "ease-out", delay: 170 });
+            animate(thumb, [{ transform: "scale(1.18)" }, { transform: "none" }], { spring: "bouncy", delay: 170 });
+          } else if (!state.thumb) {
+            animate(glyph, [{ transform: "scale(0.5)", opacity: 0 }, { transform: "none", opacity: 1 }], { spring: "bouncy", delay: 200 });
+          }
+          animate(document.querySelector(".text"), [{ opacity: 0, transform: "translateX(12px)" }, { opacity: 1, transform: "none" }], {
+            spring: "smooth",
+            delay: 220,
+          });
+        }
+        if (state.phase === "done" && previousPhase === "uploading") {
+          animate(thumb, [{ transform: "scale(0.94)" }, { transform: "none" }], { spring: "bouncy" });
+        }
+        if (state.phase === "error") setTimeout(() => shake(corners), continuing ? 120 : 380);
+
+        schedule();
+      }
+
+      function schedule() {
+        clearTimeout(timer);
+        const delay = current && DISMISS_AFTER[current.phase];
+        if (!delay || hovering) return;
+        timer = setTimeout(dismiss, delay);
+      }
+
+      function dismiss() {
+        if (!current) return;
+        invoke("hud_dismiss", { seq: current.seq });
+      }
+
+      card.addEventListener("mouseenter", () => {
+        hovering = true;
+        clearTimeout(timer);
+        if (current && HINTS[current.action] && current.phase !== "uploading") roll(message, HINTS[current.action], () => message.classList.remove("link"));
+      });
+      card.addEventListener("mouseleave", () => {
+        hovering = false;
+        if (current) roll(message, current.message, () => message.classList.toggle("link", current.phase === "done" && current.action === "open_link"));
+        schedule();
+      });
+      document.getElementById("close").addEventListener("click", (event) => {
+        event.stopPropagation();
+        dismiss();
+      });
+
+      // Swipe right to dismiss, like a notification banner. The window follows the pointer's screen
+      // position (the window itself moves under it), with resistance when pulled the wrong way.
+      let drag = null;
+      card.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest(".close")) return;
+        drag = { startX: event.screenX, dx: 0, lastX: event.screenX, lastT: event.timeStamp, velocity: 0, moved: false };
+        card.setPointerCapture(event.pointerId);
+      });
+      card.addEventListener("pointermove", (event) => {
+        if (!drag) return;
+        const raw = event.screenX - drag.startX;
+        if (!drag.moved && Math.abs(raw) < 4) return;
+        drag.moved = true;
+        card.classList.add("dragging");
+        clearTimeout(timer);
+        drag.dx = raw >= 0 ? raw : raw / 4;
+        const dt = Math.max(1, event.timeStamp - drag.lastT);
+        drag.velocity = (event.screenX - drag.lastX) / dt;
+        drag.lastX = event.screenX;
+        drag.lastT = event.timeStamp;
+        invoke("hud_drag", { dx: drag.dx });
+      });
+      card.addEventListener("pointerup", () => {
+        if (!drag) return;
+        const { moved, dx, velocity } = drag;
+        drag = null;
+        card.classList.remove("dragging");
+        if (!moved) return activate();
+        if (dx > 90 || velocity > 0.6) return dismiss();
+        invoke("hud_settle");
+        schedule();
+      });
+      card.addEventListener("pointercancel", () => {
+        if (!drag) return;
+        drag = null;
+        card.classList.remove("dragging");
+        invoke("hud_settle");
+        schedule();
+      });
+
+      function activate() {
+        if (!current) return;
+        if (current.action === "none") return dismiss();
+        clearTimeout(timer);
+        invoke("hud_activate", { seq: current.seq });
+      }
+
+      tauri.event.listen("hud", (event) => render(event.payload));
+      invoke("hud_state").then(render);
+    </script>
+  </body>
+</html>

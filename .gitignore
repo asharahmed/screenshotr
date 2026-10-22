@@ -1,0 +1,6 @@
+.DS_Store
+/src-tauri/target
+/src-tauri/.cargo
+/dist
+/server/
+.env

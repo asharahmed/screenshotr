@@ -1,0 +1,2539 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screenshotr</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --window: #f2f2f4;
+        --group: #ffffff;
+        --ink: #17191d;
+        --ink: -apple-system-label;
+        --muted: #6b7079;
+        --muted: -apple-system-secondary-label;
+        --faint: #9a9ea6;
+        --faint: -apple-system-tertiary-label;
+        --hairline: #e3e5e9;
+        --hairline: -apple-system-separator;
+        --field: #ffffff;
+        --field: -apple-system-text-background;
+        --field-line: #d3d6db;
+        --key: #f6f7f9;
+        --key-line: #cdd0d6;
+        --key-shadow: #b9bdc4;
+        --tab-active: rgba(23, 25, 29, 0.07);
+        --success: #23905a;
+        --success: -apple-system-green;
+        --warning: #b7791f;
+        --warning: -apple-system-orange;
+        --danger: #c8402f;
+        --danger: -apple-system-red;
+        --accent: #0a84ff;
+        --accent: -apple-system-control-accent;
+        /* macOS 26 and later: softer grouped boxes, capsule buttons. */
+        --radius-group: 14px;
+        --radius-control: 8px;
+        --radius-button: 999px;
+        --radius-key: 6px;
+        --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --rounded: ui-rounded, "SF Pro Rounded", -apple-system, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --window: #1e1e20;
+          --group: #2a2a2d;
+          --field: #232326;
+          --field-line: #3d4046;
+          --key: #333539;
+          --key-line: #45484e;
+          --key-shadow: #17181a;
+          --tab-active: rgba(236, 237, 239, 0.09);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        /* Only <main> scrolls; the toolbar must never be scrolled out of view. */
+        overflow: hidden;
+      }
+
+      body {
+        background: var(--window);
+        color: var(--ink);
+        font: 13px/18px var(--sans);
+        -webkit-font-smoothing: antialiased;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      :focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        outline-offset: 1px;
+        animation: focus-ring 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      /* Focus rings settle in from slightly larger, like AppKit's. */
+      @keyframes focus-ring {
+        from {
+          outline-offset: 7px;
+          outline-color: transparent;
+        }
+      }
+
+      /* An inactive window drops its accent colour, as AppKit controls do. */
+      body.inactive {
+        --accent: #a1a1a6;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body.inactive {
+          --accent: #6f6f74;
+        }
+      }
+
+      /* Toolbar sits in the transparent title bar, beside the traffic lights. */
+      .toolbar {
+        flex: none;
+        padding: 22px 0 12px;
+        display: flex;
+        justify-content: center;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .tabs {
+        position: relative;
+        display: flex;
+        gap: 4px;
+      }
+
+      .tab {
+        position: relative;
+        z-index: 1;
+      }
+
+      .tab-indicator {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        border-radius: 12px;
+        background: var(--tab-active);
+        pointer-events: none;
+        transition:
+          transform var(--spring-bouncy-duration) var(--spring-bouncy),
+          width var(--spring-snappy-duration) var(--spring-snappy);
+      }
+
+      .tab-indicator.instant {
+        transition: none;
+      }
+
+      .tab {
+        min-width: 80px;
+        height: 52px;
+        padding: 0 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border: 0;
+        border-radius: 12px;
+        background: none;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 13px;
+      }
+
+      .tab svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .tab[aria-selected="true"] {
+        color: var(--accent);
+      }
+
+      main {
+        position: relative;
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 28px 12px;
+      }
+
+      section {
+        display: flow-root;
+      }
+
+      .app-icon {
+        display: block;
+        width: 112px;
+        height: 112px;
+        margin-bottom: 10px;
+        -webkit-user-drag: none;
+      }
+
+      #about .about {
+        height: 400px;
+      }
+
+      .updates {
+        margin-top: 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .updates .meta {
+        min-height: 16px;
+        margin: 0;
+      }
+
+      .update-auto {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      h2 {
+        margin: 18px 0 8px;
+        padding-left: 2px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      section > h2:first-child,
+      .banner + h2 {
+        margin-top: 0;
+      }
+
+      .group {
+        background: var(--group);
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-group);
+      }
+
+      .row {
+        min-height: 42px;
+        padding: 7px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .row + .row {
+        border-top: 1px solid var(--hairline);
+      }
+
+      .row .sub {
+        margin: 1px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 15px;
+      }
+
+      .form .row label {
+        flex: none;
+        width: 128px;
+        color: var(--ink);
+      }
+
+      .form .row .field {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        gap: 6px;
+      }
+
+      .note {
+        margin: 7px 2px 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 15px;
+      }
+
+      .note.error {
+        color: var(--danger);
+      }
+
+      input[type="text"],
+      input[type="password"],
+      input[type="url"] {
+        width: 100%;
+        height: 26px;
+        padding: 0 8px;
+        border: 1px solid var(--field-line);
+        border-radius: var(--radius-control);
+        background: var(--field);
+        font-family: var(--mono);
+        font-size: 12px;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      input::placeholder {
+        color: var(--faint);
+      }
+
+      input[aria-invalid="true"] {
+        border-color: var(--danger);
+      }
+
+      input:focus-visible {
+        outline-offset: 0;
+        border-color: var(--accent);
+      }
+
+      .icon-button {
+        flex: none;
+        width: 28px;
+        height: 26px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--field-line);
+        border-radius: var(--radius-control);
+        background: var(--field);
+        color: var(--muted);
+      }
+
+      .icon-button svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .button {
+        flex: none;
+        height: 28px;
+        padding: 0 14px;
+        white-space: nowrap;
+        border: 1px solid var(--field-line);
+        border-radius: var(--radius-button);
+        background: var(--field);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+      }
+
+      .button:active {
+        background: var(--tab-active);
+      }
+
+      .button[disabled] {
+        color: var(--faint);
+      }
+
+      .link {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--accent);
+        font-size: inherit;
+      }
+
+      /* Switch */
+      .switch {
+        flex: none;
+        appearance: none;
+        -webkit-appearance: none;
+        width: 32px;
+        height: 18px;
+        margin: 0;
+        border-radius: 9px;
+        background: var(--field-line);
+        position: relative;
+        transition: background 160ms ease;
+      }
+
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        transition: transform 160ms ease;
+      }
+
+      .switch:checked {
+        background: var(--accent);
+      }
+
+      .switch:checked::after {
+        transform: translateX(14px);
+      }
+
+      /* Shortcut recorder */
+      .recorder {
+        min-width: 132px;
+        height: 30px;
+        padding: 0 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border: 1px solid var(--field-line);
+        border-radius: var(--radius-control);
+        background: var(--field);
+      }
+
+      .recorder.recording {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+        color: var(--muted);
+      }
+
+      .recorder .placeholder {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      kbd {
+        min-width: 22px;
+        height: 20px;
+        padding: 0 5px;
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid var(--key-line);
+        border-radius: var(--radius-key);
+        background: var(--key);
+        box-shadow: 0 1px 0 var(--key-shadow);
+        font: 500 12px/1 var(--sans);
+      }
+
+      /* Status banner */
+      .banner {
+        margin-bottom: 18px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: var(--radius-group);
+        background: var(--group);
+        border: 1px solid var(--hairline);
+      }
+
+      .banner .dot {
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+
+      .banner[data-tone="warning"] .dot {
+        background: var(--warning);
+      }
+
+      .banner .text {
+        flex: 1;
+      }
+
+      .banner .button[hidden] {
+        display: none;
+      }
+
+      .actions {
+        margin-top: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .result {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .result[data-tone="success"] {
+        color: var(--success);
+      }
+
+      .result[data-tone="error"] {
+        color: var(--danger);
+      }
+
+      code {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--ink);
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      /* About: the wordmark sits inside the same viewfinder corners as the capture overlay. */
+      .about {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding-bottom: 24px;
+      }
+
+      .viewfinder {
+        position: relative;
+        padding: 22px 34px;
+      }
+
+      .viewfinder i {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border: 0 solid var(--ink);
+      }
+
+      .viewfinder .tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+      .viewfinder .tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+      .viewfinder .bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+      .viewfinder .br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+      .wordmark {
+        margin: 0;
+        font: 800 34px/1 var(--rounded);
+        letter-spacing: -0.02em;
+      }
+
+      .tagline {
+        margin: 12px 0 0;
+        font-size: 15px;
+        line-height: 21px;
+        color: var(--ink);
+      }
+
+      .meta {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      footer {
+        flex: none;
+        height: 30px;
+        padding: 0 28px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      footer span {
+        transition: opacity 400ms ease;
+      }
+
+      footer span[data-tone="error"] {
+        color: var(--danger);
+      }
+
+      /* Storage: saved destinations, picker tiles and per-kind forms */
+      #storage-view > :first-child {
+        margin-top: 0;
+      }
+
+      .lede {
+        margin: -2px 2px 14px;
+        color: var(--muted);
+      }
+
+      .back {
+        display: block;
+        margin: -4px 0 10px;
+        font-size: 12px;
+      }
+
+      .back + h2,
+      .back + .form-head {
+        margin-top: 0;
+      }
+
+      .mark {
+        flex: none;
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--key-line);
+        border-radius: 7px;
+        background: var(--key);
+        color: var(--ink);
+        font: 600 11px/1 var(--rounded);
+        letter-spacing: -0.01em;
+      }
+
+      .mark svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .mark.glyph svg {
+        fill: none;
+        stroke: var(--muted);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .form-head .mark svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .names {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        text-align: left;
+      }
+
+      .names .name {
+        color: var(--ink);
+      }
+
+      .names .host {
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .destination .pick {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0;
+        border: 0;
+        background: none;
+      }
+
+      .radio {
+        flex: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid var(--field-line);
+        background: var(--field);
+      }
+
+      .pick[aria-checked="true"] .radio {
+        border: 5px solid var(--accent);
+        background: #fff;
+      }
+
+      .picker-group + .picker-group {
+        margin-top: 12px;
+      }
+
+      #field-name {
+        font: 13px var(--sans);
+      }
+
+      h3 {
+        margin: 0 0 7px;
+        padding-left: 2px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .tile {
+        min-width: 0;
+        min-height: 48px;
+        padding: 6px 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-group);
+        background: var(--group);
+      }
+
+      .tile:hover {
+        border-color: var(--field-line);
+      }
+
+      .tile:active {
+        background: var(--tab-active);
+      }
+
+      .form-head {
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .form-head .mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        font-size: 13px;
+      }
+
+      .form-head h2 {
+        margin: 0;
+      }
+
+      .form-head .lede {
+        margin: 1px 0 0;
+      }
+
+      .form .row.stack {
+        align-items: flex-start;
+      }
+
+      .form .row.stack > label {
+        padding-top: 4px;
+      }
+
+      .form .control {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .form .row > input:not([type="checkbox"]),
+      .form .row > select {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .form .control > input,
+      .form .control > select,
+      .form .control > textarea {
+        width: 100%;
+      }
+
+      .form .control .sub {
+        margin-top: 5px;
+      }
+
+      select {
+        height: 26px;
+        padding: 0 6px;
+        border: 1px solid var(--field-line);
+        border-radius: var(--radius-control);
+        background: var(--field);
+        font: inherit;
+        color: inherit;
+      }
+
+      textarea {
+        padding: 5px 8px;
+        border: 1px solid var(--field-line);
+        border-radius: var(--radius-control);
+        background: var(--field);
+        color: inherit;
+        font: 12px/17px var(--mono);
+        resize: vertical;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      input:not([type]),
+      .form input[type="text"],
+      .form input[type="url"],
+      .form input[type="password"],
+      .steps input {
+        width: 100%;
+      }
+
+      .import {
+        margin: -4px 0 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .import .note {
+        margin: 0;
+      }
+
+      .button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .button.primary:active {
+        filter: brightness(0.92);
+      }
+
+      .actions .spacer {
+        flex: 1;
+      }
+
+      .link.danger {
+        color: var(--danger);
+      }
+
+      .steps {
+        margin: 0 0 14px;
+        padding: 0;
+        list-style: none;
+        counter-reset: step;
+        background: var(--group);
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-group);
+      }
+
+      .steps li {
+        counter-increment: step;
+        padding: 10px 12px 10px 44px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .steps li + li {
+        border-top: 1px solid var(--hairline);
+      }
+
+      .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 12px;
+        top: 11px;
+        width: 20px;
+        height: 20px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--key);
+        border: 1px solid var(--key-line);
+        font: 600 11px/1 var(--rounded);
+      }
+
+      .steps strong {
+        font-weight: 600;
+      }
+
+      .steps .grow {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .result {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* The recorder pulses while listening for keys. */
+      .recorder.recording {
+        animation: listening 1.4s ease-in-out infinite;
+      }
+
+      @keyframes listening {
+        50% {
+          box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 12%, transparent);
+        }
+      }
+
+      .spinner {
+        width: 13px;
+        height: 13px;
+        margin-right: 6px;
+        vertical-align: -2px;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        animation: spin 0.8s steps(8) infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .banner .dot {
+        transition: background-color 300ms ease;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .recorder.recording,
+        .spinner {
+          animation: none !important;
+        }
+      }
+
+      /* Segmented control, macOS 26 style: a capsule track with a raised selected segment. */
+      .segmented {
+        position: relative;
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--ink) 8%, transparent);
+      }
+
+      .segmented button {
+        position: relative;
+        z-index: 1;
+        height: 24px;
+        padding: 0 13px;
+        border: 0;
+        border-radius: 999px;
+        background: none;
+        color: var(--muted);
+        font-size: 12px;
+        transition: color 180ms ease;
+      }
+
+      .segmented button[aria-checked="true"] {
+        color: var(--ink);
+        font-weight: 500;
+      }
+
+      .segment-indicator {
+        position: absolute;
+        top: 2px;
+        bottom: 2px;
+        left: 0;
+        border-radius: 999px;
+        background: var(--field);
+        box-shadow:
+          0 0 0 0.5px color-mix(in srgb, var(--ink) 10%, transparent),
+          0 1px 3px rgba(0, 0, 0, 0.14);
+        transition:
+          transform var(--spring-bouncy-duration) var(--spring-bouncy),
+          width var(--spring-snappy-duration) var(--spring-snappy);
+      }
+
+      .segment-indicator.instant {
+        transition: none;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        .segment-indicator {
+          background: #4a4b50;
+        }
+      }
+
+      /* ---- Motion: transitions use the spring curves from motion.js ---- */
+      main.transitioning {
+        overflow: hidden;
+      }
+
+      #storage-view {
+        position: relative;
+      }
+
+      .ghost {
+        position: absolute;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .view-ghost {
+        top: 0;
+        left: 0;
+        right: 0;
+      }
+
+      .mark {
+        position: relative;
+        z-index: 2;
+      }
+
+      .tab {
+        transition: color 200ms ease, background-color 160ms ease;
+      }
+
+      .tab:hover:not([aria-selected="true"]) {
+        background: color-mix(in srgb, var(--tab-active) 55%, transparent);
+      }
+
+      .button,
+      .icon-button,
+      .recorder {
+        transition:
+          transform var(--spring-snappy-duration) var(--spring-snappy),
+          background-color 160ms ease,
+          border-color 160ms ease,
+          box-shadow 200ms ease;
+      }
+
+      .button:active:not([disabled]),
+      .icon-button:active,
+      .recorder:active {
+        transform: scale(0.95);
+      }
+
+      .tile {
+        transition:
+          transform var(--spring-snappy-duration) var(--spring-snappy),
+          box-shadow 220ms ease,
+          border-color 160ms ease,
+          background-color 160ms ease;
+      }
+
+      .tile:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.22);
+      }
+
+      .tile:active {
+        transform: scale(0.97);
+        box-shadow: none;
+      }
+
+      .tile .mark {
+        transition: transform var(--spring-bouncy-duration) var(--spring-bouncy);
+      }
+
+      .tile:hover .mark {
+        transform: scale(1.08);
+      }
+
+      /* Switches: the knob springs across, and stretches while held like AppKit's. */
+      .switch {
+        transition: background-color 220ms ease;
+      }
+
+      .switch::after {
+        transition:
+          transform var(--spring-bouncy-duration) var(--spring-bouncy),
+          width var(--spring-snappy-duration) var(--spring-snappy),
+          box-shadow 160ms ease;
+      }
+
+      .switch:active::after {
+        width: 19px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .switch:checked:active::after {
+        transform: translateX(9px);
+      }
+
+      .radio {
+        transition:
+          border-width var(--spring-bouncy-duration) var(--spring-bouncy),
+          border-color 160ms ease;
+      }
+
+      kbd.held {
+        opacity: 0.75;
+      }
+
+      .save-check,
+      .result-check {
+        width: 12px;
+        height: 12px;
+        margin-right: 4px;
+        vertical-align: -1px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .save-check {
+        color: var(--success);
+      }
+
+      footer span {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::after {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar" data-tauri-drag-region>
+      <nav class="tabs" role="tablist" aria-label="Settings">
+        <button class="tab" role="tab" id="tab-general" aria-controls="general" data-tab="general">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+            <circle cx="16" cy="7" r="2" />
+            <circle cx="10" cy="17" r="2" />
+          </svg>
+          General
+        </button>
+        <button class="tab" role="tab" id="tab-storage" aria-controls="storage" data-tab="storage">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.4 9.1 4.5 4.5 0 0 0 7 18Z" />
+            <path d="M12 15v-5M9.5 12.5 12 10l2.5 2.5" />
+          </svg>
+          Storage
+        </button>
+        <button class="tab" role="tab" id="tab-about" aria-controls="about" data-tab="about">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 9V5h4M16 5h4v4M20 15v4h-4M8 19H4v-4" />
+          </svg>
+          About
+        </button>
+      </nav>
+    </header>
+
+    <main inert>
+      <section id="general" role="tabpanel" aria-labelledby="tab-general">
+        <div class="banner" id="banner" role="status">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="text" id="banner-text">Checking…</span>
+          <button class="button" id="banner-action" hidden></button>
+        </div>
+
+        <h2>Shortcuts</h2>
+        <div class="group">
+          <div class="row">
+            <span id="label-area">Capture area</span>
+            <button class="recorder" data-key="hotkey_area" aria-labelledby="label-area"></button>
+          </div>
+          <div class="row">
+            <span id="label-full">Capture screen</span>
+            <button class="recorder" data-key="hotkey_full" aria-labelledby="label-full"></button>
+          </div>
+          <div class="row">
+            <span id="label-clipboard">Upload clipboard</span>
+            <button class="recorder" data-key="hotkey_clipboard" aria-labelledby="label-clipboard"></button>
+          </div>
+        </div>
+        <p class="note" id="shortcut-note">Click a shortcut, then press the keys you want. Press Delete to turn it off.</p>
+
+        <h2>After each capture</h2>
+        <div class="group">
+          <div class="row">
+            <span id="label-format">Copy as</span>
+            <div class="segmented" id="link-format" role="radiogroup" aria-labelledby="label-format">
+              <span class="segment-indicator" aria-hidden="true"></span>
+              <button role="radio" data-value="url">Link</button>
+              <button role="radio" data-value="markdown">Markdown</button>
+              <button role="radio" data-value="html">HTML</button>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="retain_local_copy">Keep a copy in Pictures</label>
+              <p class="sub">Saved to Pictures › Screenshotr. <button class="link" id="open-pictures">Show folder</button></p>
+            </div>
+            <input class="switch" type="checkbox" id="retain_local_copy" data-key="retain_local_copy" />
+          </div>
+          <div class="row" id="login-row">
+            <label for="open_at_login">Open at login</label>
+            <input class="switch" type="checkbox" id="open_at_login" data-key="open_at_login" />
+          </div>
+        </div>
+      </section>
+
+      <section id="storage" role="tabpanel" aria-labelledby="tab-storage" hidden>
+        <div id="storage-view"></div>
+      </section>
+
+      <section id="about" role="tabpanel" aria-labelledby="tab-about" hidden>
+        <div class="about">
+          <img class="app-icon" src="app-icon.png" alt="" width="112" height="112" />
+          <h1 class="wordmark">Screenshotr</h1>
+          <p class="tagline">Press a shortcut, get a link.</p>
+          <p class="meta">Version <span id="version"></span></p>
+          <p class="meta">Made by Ashar Ahmed</p>
+          <div class="updates">
+            <button class="button" id="update-button">Check for Updates</button>
+            <p class="meta" id="update-result" role="status"></p>
+            <label class="update-auto">
+              <input class="switch" type="checkbox" id="check_updates" data-key="check_updates" />
+              Check automatically
+            </label>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer><span id="save-state" aria-live="polite"></span></footer>
+
+    <script src="motion.js"></script>
+    <script src="destination-icons.js"></script>
+    <script>
+      const tauri = window.__TAURI__;
+      window.addEventListener("blur", () => document.body.classList.add("inactive"));
+      window.addEventListener("focus", () => document.body.classList.remove("inactive"));
+      const invoke = tauri.invoke || (tauri.tauri && tauri.tauri.invoke);
+      const appWindow = tauri.window.appWindow;
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+
+      let config = null;
+      let status = null;
+
+      const { animate, cascade, flyFrom, shake, roll, draw, checkmark } = window.Motion;
+      const main = document.querySelector("main");
+      window.addEventListener("scroll", () => window.scrollTo(0, 0));
+
+      // While views cross, the outgoing copy may be taller than the window; don't flash a scroll bar.
+      let overflowTimer = null;
+      function holdOverflow() {
+        main.classList.add("transitioning");
+        clearTimeout(overflowTimer);
+        overflowTimer = setTimeout(() => main.classList.remove("transitioning"), 520);
+      }
+
+      /** A static copy of `node`, laid over it so it can animate away while the real one changes. */
+      function ghostOf(node, container) {
+        const ghost = node.cloneNode(true);
+        ghost.removeAttribute("id");
+        ghost.querySelectorAll("[id]").forEach((child) => child.removeAttribute("id"));
+        ghost.removeAttribute("hidden");
+        ghost.classList.add("ghost");
+        ghost.setAttribute("aria-hidden", "true");
+        ghost.inert = true;
+        Object.assign(ghost.style, { top: `${node.offsetTop}px`, left: `${node.offsetLeft}px`, width: `${node.offsetWidth}px` });
+        container.append(ghost);
+        return ghost;
+      }
+
+      function fadeAway(ghost, transform) {
+        if (Motion.reduced || !ghost.animate) return ghost.remove();
+        ghost
+          .animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform }], {
+            duration: 110,
+            easing: "cubic-bezier(0.4, 0, 1, 1)",
+            fill: "forwards",
+          })
+          .finished.then(() => ghost.remove(), () => ghost.remove());
+        // WebKit pauses animations in hidden windows; don't let a copy linger if that happens.
+        setTimeout(() => ghost.remove(), 300);
+      }
+
+      // ---- Tabs ------------------------------------------------------------------------------
+
+      const tabs = [...document.querySelectorAll(".tab")];
+      // One selection capsule that glides between tabs, rather than each tab lighting up.
+      const tabIndicator = document.createElement("span");
+      tabIndicator.className = "tab-indicator";
+      tabIndicator.setAttribute("aria-hidden", "true");
+      document.querySelector(".tabs").prepend(tabIndicator);
+      let currentTab = null;
+
+      function moveIndicator(tab, instant) {
+        tabIndicator.classList.toggle("instant", instant);
+        tabIndicator.style.width = `${tab.offsetWidth}px`;
+        tabIndicator.style.transform = `translateX(${tab.offsetLeft}px)`;
+        if (instant) requestAnimationFrame(() => tabIndicator.classList.remove("instant"));
+      }
+
+      function panelItems(panel) {
+        if (panel.id === "storage") return viewItems(null);
+        if (panel.id === "about") return [];
+        return [...panel.children];
+      }
+
+      function selectTab(name) {
+        if (!tabs.some((tab) => tab.dataset.tab === name)) name = "general";
+        const previous = currentTab;
+        const changed = previous !== null && previous !== name;
+        currentTab = name;
+        if (changed) {
+          holdOverflow();
+          fadeAway(ghostOf(document.getElementById(previous), main), "translateY(-6px)");
+        }
+        for (const tab of tabs) {
+          const selected = tab.dataset.tab === name;
+          tab.setAttribute("aria-selected", String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+          document.getElementById(tab.dataset.tab).hidden = !selected;
+        }
+        const tab = tabs.find((item) => item.dataset.tab === name);
+        moveIndicator(tab, previous === null);
+        // Hidden panels have no layout, so place the segmented control's pill once General shows.
+        if (name === "general" && config) showFormat(config.link_format || "url", true);
+        if (changed) {
+          animate(tab.querySelector("svg"), [{ transform: "scale(0.72)" }, { transform: "scale(1)" }], { spring: "bouncy" });
+          const panel = document.getElementById(name);
+          cascade(panelItems(panel), { from: "translateY(10px)", step: 24, delay: 90 });
+          if (name === "about") playAboutEntrance();
+        }
+        fitWindow();
+      }
+
+      // The About wordmark gets the same viewfinder close-in as the welcome window.
+      // The About tab: the icon springs up into place, then the name and details follow.
+      function playAboutEntrance() {
+        animate(document.querySelector("#about .app-icon"), [{ opacity: 0, transform: "translateY(14px) scale(0.82)" }, { opacity: 1, transform: "none" }], {
+          spring: "bouncy",
+          delay: 40,
+        });
+        cascade(document.querySelectorAll("#about .wordmark, #about .tagline, #about .meta"), { from: "translateY(8px)", step: 45, delay: 140 });
+      }
+
+      // Like native preference windows, the window takes the height of the selected tab.
+      function fitWindow() {
+        const main = document.querySelector("main");
+        const panel = document.querySelector("section:not([hidden])");
+        const style = getComputedStyle(main);
+        const height =
+          document.querySelector(".toolbar").offsetHeight +
+          panel.offsetHeight +
+          parseFloat(style.paddingTop) +
+          parseFloat(style.paddingBottom) +
+          document.querySelector("footer").offsetHeight;
+        const limit = Math.max(480, (window.screen.availHeight || 800) - 80);
+        invoke("fit_window_height", { height: Math.min(Math.ceil(height), limit) }).catch(() => {});
+      }
+
+      for (const tab of tabs) {
+        tab.addEventListener("click", () => selectTab(tab.dataset.tab));
+      }
+
+      document.querySelector(".tabs").addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        const index = tabs.findIndex((tab) => tab.getAttribute("aria-selected") === "true");
+        const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+        selectTab(next.dataset.tab);
+        next.focus();
+      });
+
+      // ---- Saving ----------------------------------------------------------------------------
+
+      const saveState = document.getElementById("save-state");
+      let fadeTimer = null;
+
+      function showSaveState(text, tone) {
+        clearTimeout(fadeTimer);
+        const icon = tone === "error" ? null : checkmark("save-check");
+        saveState.replaceChildren(...[icon, text].filter(Boolean));
+        saveState.dataset.tone = tone || "";
+        saveState.style.opacity = "1";
+        animate(saveState, [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { spring: "bouncy" });
+        if (icon) draw(icon.querySelector("path"), { delay: 80 });
+        if (tone !== "error") {
+          fadeTimer = setTimeout(() => (saveState.style.opacity = "0"), 1600);
+        }
+      }
+
+      async function save(changes) {
+        if (!config) return "Settings are still loading.";
+        try {
+          await invoke("set_config", { changes });
+          config = { ...config, ...changes };
+          showSaveState("Saved");
+          await refreshStatus();
+          return null;
+        } catch (error) {
+          showSaveState(String(error), "error");
+          return String(error);
+        }
+      }
+
+      // ---- Destinations ----------------------------------------------------------------------
+
+      const S3_PROVIDERS = {
+        aws: { label: "Amazon S3", region: "us-east-1" },
+        r2: { label: "Cloudflare R2", endpoint: "https://account-id.r2.cloudflarestorage.com" },
+        b2: { label: "Backblaze B2", endpoint: "https://s3.us-west-004.backblazeb2.com", region: "us-west-004" },
+        spaces: { label: "DigitalOcean Spaces", endpoint: "https://nyc3.digitaloceanspaces.com", region: "nyc3" },
+        wasabi: { label: "Wasabi", endpoint: "https://s3.us-east-1.wasabisys.com", region: "us-east-1" },
+        minio: { label: "MinIO", endpoint: "https://minio.example.com" },
+        other: { label: "Other S3-compatible", endpoint: "https://s3.example.com" },
+      };
+
+      const optionsOf = (entries) => Object.entries(entries).map(([value, entry]) => [value, entry.label || entry]);
+
+      // Each kind lists only what that service needs. `showIf` and function placeholders read the draft.
+      const KINDS = {
+        catbox: {
+          title: "Catbox",
+          group: "free",
+          blurb: "Permanent links",
+          fields: [
+            { key: "userhash", label: "User hash", type: "secret", optional: true, help: "Optional. Links uploads to your catbox.moe account so you can delete them." },
+          ],
+        },
+        litterbox: {
+          title: "Litterbox",
+          group: "free",
+          blurb: "Links that expire",
+          fields: [
+            { key: "time", label: "Links last", type: "select", value: "24h", options: [["1h", "1 hour"], ["12h", "12 hours"], ["24h", "1 day"], ["72h", "3 days"]] },
+          ],
+        },
+        imgur: {
+          title: "Imgur",
+          group: "hosts",
+          blurb: "Public image links",
+          fields: [
+            { key: "client_id", label: "Client ID", type: "text", help: "Register an app without a callback URL, then paste its Client ID.", link: ["Register an app", "https://api.imgur.com/oauth2/addclient"] },
+          ],
+        },
+        custom_http: {
+          title: "ShareX uploader",
+          group: "hosts",
+          blurb: "Zipline, XBackBone…",
+          importable: true,
+          fields: [
+            { key: "RequestURL", label: "Upload URL", type: "url", placeholder: "https://example.com/api/upload" },
+            { key: "RequestMethod", label: "Method", type: "select", value: "POST", options: [["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"]] },
+            { key: "Body", label: "Send file as", type: "select", value: "MultipartFormData", options: [["MultipartFormData", "Form upload"], ["Binary", "Raw file"]] },
+            { key: "FileFormName", label: "File field", type: "text", value: "file", showIf: (draft) => draft.Body === "MultipartFormData" },
+            { key: "Headers", label: "Headers", type: "pairs", optional: true, placeholder: "Authorization: your-token" },
+            { key: "Arguments", label: "Form fields", type: "pairs", optional: true, placeholder: "name: value", showIf: (draft) => draft.Body === "MultipartFormData" },
+            { key: "URL", label: "Link in reply", type: "text", optional: true, placeholder: "{json:data.link}", help: "Where the link is in the server's reply. Leave empty if it replies with just the link." },
+          ],
+        },
+        r2_connect: {
+          title: "Cloudflare R2",
+          group: "cloud",
+          blurb: "One token, no setup",
+          connect: true,
+        },
+        s3: {
+          title: "S3-compatible",
+          group: "cloud",
+          blurb: "AWS, B2, Wasabi…",
+          fields: [
+            { key: "provider", label: "Provider", type: "select", value: "aws", options: optionsOf(S3_PROVIDERS) },
+            { key: "endpoint", label: "Endpoint", type: "url", showIf: (draft) => draft.provider !== "aws", placeholder: (draft) => S3_PROVIDERS[draft.provider]?.endpoint || "" },
+            { key: "region", label: "Region", type: "text", showIf: (draft) => draft.provider !== "r2", placeholder: (draft) => S3_PROVIDERS[draft.provider]?.region || "us-east-1", optional: true },
+            { key: "bucket", label: "Bucket", type: "text" },
+            { key: "access_key_id", label: "Access key ID", type: "text" },
+            { key: "secret_access_key", label: "Secret access key", type: "secret" },
+            {
+              key: "public_base_url",
+              label: "Public URL",
+              type: "url",
+              optional: (draft) => draft.provider !== "r2",
+              placeholder: (draft) => (draft.provider === "r2" ? "https://pub-….r2.dev or your domain" : "Leave empty to use the bucket's own address"),
+            },
+            { key: "public_read", label: "Make each upload public", type: "checkbox", showIf: (draft) => ["aws", "spaces", "wasabi", "b2", "other"].includes(draft.provider) },
+            { key: "path_style", label: "Use path-style addresses", type: "checkbox", showIf: (draft) => ["minio", "other"].includes(draft.provider) },
+          ],
+        },
+        azure_blob: {
+          title: "Azure Blob Storage",
+          group: "cloud",
+          blurb: "One SAS URL",
+          fields: [
+            { key: "sas_url", label: "SAS URL", type: "secret", placeholder: "https://account.blob.core.windows.net/container?sv=…", help: "In the Azure portal, open the container's Shared access tokens and allow Create and Write." },
+            { key: "public_base_url", label: "Public URL", type: "url", optional: true, placeholder: "Leave empty to use the container's address" },
+          ],
+        },
+        nextcloud: {
+          title: "Nextcloud",
+          group: "server",
+          blurb: "Shares a link",
+          fields: [
+            { key: "server", label: "Server", type: "url", placeholder: "https://cloud.example.com" },
+            { key: "username", label: "User name", type: "text" },
+            { key: "password", label: "App password", type: "secret", help: "Create one in Nextcloud under Settings › Security." },
+            { key: "folder", label: "Folder", type: "text", value: "Screenshots" },
+          ],
+        },
+        webdav: {
+          title: "WebDAV",
+          group: "server",
+          blurb: "Any WebDAV folder",
+          fields: [
+            { key: "url", label: "Folder URL", type: "url", placeholder: "https://dav.example.com/screenshots/" },
+            { key: "username", label: "User name", type: "text", optional: true },
+            { key: "password", label: "Password", type: "secret", optional: true },
+            { key: "public_base_url", label: "Public URL", type: "url", optional: true, placeholder: "Leave empty to link to the folder URL" },
+          ],
+        },
+        sftp: {
+          title: "SFTP",
+          group: "server",
+          blurb: "Uses your SSH keys",
+          note: "Uses your SSH keys, ssh-agent and ~/.ssh/config. Password logins aren't supported.",
+          fields: [
+            { key: "host", label: "Host", type: "text", placeholder: "example.com or a ~/.ssh/config alias" },
+            { key: "username", label: "User name", type: "text", optional: true },
+            { key: "port", label: "Port", type: "number", optional: true, placeholder: "22" },
+            { key: "remote_dir", label: "Folder", type: "text", placeholder: "/var/www/i" },
+            { key: "public_base_url", label: "Public URL", type: "url", placeholder: "https://i.example.com" },
+          ],
+        },
+        ftp: {
+          title: "FTP",
+          group: "server",
+          blurb: "FTP or FTPS",
+          fields: [
+            { key: "host", label: "Host", type: "text", placeholder: "ftp.example.com" },
+            { key: "port", label: "Port", type: "number", optional: true, placeholder: "21" },
+            { key: "tls", label: "Encrypt with TLS (FTPS)", type: "checkbox", value: true },
+            { key: "username", label: "User name", type: "text" },
+            { key: "password", label: "Password", type: "secret" },
+            { key: "remote_dir", label: "Folder", type: "text", optional: true, placeholder: "public_html/i" },
+            { key: "public_base_url", label: "Public URL", type: "url", placeholder: "https://example.com/i" },
+          ],
+        },
+        folder: {
+          title: "Folder",
+          group: "server",
+          blurb: "A served folder",
+          fields: [
+            { key: "path", label: "Folder", type: "folder" },
+            { key: "public_base_url", label: "Public URL", type: "url", placeholder: "https://i.example.com" },
+          ],
+        },
+      };
+
+      const GROUPS = [
+        ["free", "No account needed"],
+        ["hosts", "Image hosts"],
+        ["cloud", "Cloud storage"],
+        ["server", "Your own server"],
+      ];
+
+      const R2_TOKEN_URL =
+        "https://dash.cloudflare.com/profile/api-tokens?name=Screenshotr&permissionGroupKeys=" +
+        encodeURIComponent(JSON.stringify([{ key: "workers_r2", type: "edit" }]));
+
+      const storage = { view: "list", kind: null, draft: null, editing: false, note: "", motion: null, hero: null };
+      const storageView = document.getElementById("storage-view");
+
+      // Small DOM helper: el("div.class", { attrs }, ...children)
+      function el(spec, attrs = {}, ...children) {
+        const [tag, ...classes] = spec.split(".");
+        const node = document.createElement(tag);
+        if (classes.length) node.className = classes.join(" ");
+        for (const [key, value] of Object.entries(attrs)) {
+          if (value === undefined || value === null || value === false) continue;
+          if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+          else if (key in node && key !== "list") node[key] = value;
+          else node.setAttribute(key, value === true ? "" : value);
+        }
+        node.append(...children.flat().filter((child) => child !== null && child !== undefined && child !== false));
+        return node;
+      }
+
+      /** What cascades in when a Storage screen arrives; the hero (flying icon) is left out. */
+      function viewItems(hero) {
+        const items = [];
+        for (const child of storageView.children) {
+          if (child.classList.contains("ghost")) continue;
+          const notHome = (node) => !(hero && node.contains(hero));
+          if (child.classList.contains("picker-group")) {
+            items.push(child.querySelector("h3"), ...[...child.querySelectorAll(".tile")].filter(notHome));
+          } else if (hero && child.contains(hero)) {
+            items.push(...[...child.children].filter((node) => node !== hero && !node.contains(hero)));
+          } else {
+            items.push(child);
+          }
+        }
+        return items;
+      }
+
+      // Replaces the Storage view, skipping empty slots and flattening lists. Navigation crosses the
+      // old and new screens like a navigation stack, the chosen icon flies between them, and a form
+      // that only gains or loses fields slides its rows into place.
+      function mount(...children) {
+        const next = children.flat(2).filter((child) => child !== null && child !== undefined && child !== false);
+        const direction = storage.motion;
+        const hero = storage.hero;
+        storage.motion = null;
+        storage.hero = null;
+
+        const before = new Map();
+        const boxHeight = storageView.querySelector(".group.form")?.offsetHeight;
+        const headIcon = storageView.querySelector(".form-head .mark")?.dataset.icon;
+        if (!direction) for (const node of storageView.querySelectorAll("[data-flip]")) before.set(node.dataset.flip, node.getBoundingClientRect());
+
+        let ghost = null;
+        if (direction && !Motion.reduced && storageView.childElementCount) {
+          ghost = document.createElement("div");
+          ghost.className = "ghost view-ghost";
+          ghost.setAttribute("aria-hidden", "true");
+          ghost.inert = true;
+          ghost.append(...storageView.childNodes);
+          if (hero) ghost.querySelector("[data-hero-source]")?.style.setProperty("visibility", "hidden");
+        }
+        storageView.replaceChildren(...next);
+        storageView.querySelectorAll("[data-hero-source]").forEach((node) => node.removeAttribute("data-hero-source"));
+        // Measure the settled layout now; the animations below only change how it gets there.
+        if (!document.getElementById("storage").hidden) fitWindow();
+
+        if (!direction) {
+          for (const node of storageView.querySelectorAll("[data-flip]")) {
+            const from = before.get(node.dataset.flip);
+            const to = node.getBoundingClientRect();
+            if (from && Math.abs(from.top - to.top) > 0.5) {
+              animate(node, [{ transform: `translateY(${from.top - to.top}px)` }, { transform: "none" }], { spring: "smooth" });
+            } else if (!from && before.size) {
+              animate(node, [{ opacity: 0, transform: "scale(0.98)" }, { opacity: 1, transform: "none" }], { spring: "smooth", delay: 60 });
+            }
+          }
+          const box = storageView.querySelector(".group.form");
+          if (box && boxHeight && Math.abs(box.offsetHeight - boxHeight) > 0.5) {
+            animate(box, [{ height: `${boxHeight}px`, overflow: "hidden" }, { height: `${box.offsetHeight}px`, overflow: "hidden" }], { spring: "smooth" });
+          }
+          const mark = storageView.querySelector(".form-head .mark");
+          if (mark && headIcon && mark.dataset.icon !== headIcon) {
+            animate(mark, [{ transform: "scale(0.5) rotate(-12deg)", opacity: 0 }, { transform: "none", opacity: 1 }], { spring: "bouncy" });
+          }
+          return;
+        }
+
+        holdOverflow();
+        const heroNode = hero ? storageView.querySelector(hero.target) : null;
+        if (heroNode) flyFrom(heroNode, hero.rect);
+        if (ghost) {
+          storageView.append(ghost);
+          fadeAway(ghost, direction === "forward" ? "translateX(-20px)" : "translateX(20px)");
+        }
+        cascade(viewItems(heroNode), {
+          from: direction === "forward" ? "translateX(24px)" : "translateX(-24px)",
+          step: 14,
+          delay: 75,
+        });
+      }
+
+      /** Remembers an icon so the next screen can fly it to its new place. */
+      function launchHero(mark, target) {
+        if (!mark) return;
+        mark.setAttribute("data-hero-source", "");
+        storage.hero = { rect: mark.getBoundingClientRect(), target };
+      }
+
+      const resolve = (value, draft) => (typeof value === "function" ? value(draft) : value);
+
+      function kindKeyOf(destination) {
+        return destination.kind;
+      }
+
+      const S3_ICONS = { r2: "cloudflare", b2: "backblaze", spaces: "digitalocean", wasabi: "wasabi", minio: "minio" };
+      const KIND_ICONS = {
+        catbox: "box",
+        litterbox: "timer",
+        imgur: "imgur",
+        custom_http: "sharex",
+        r2_connect: "cloudflare",
+        azure_blob: "cloud",
+        nextcloud: "nextcloud",
+        webdav: "globe",
+        sftp: "terminal",
+        ftp: "server",
+        folder: "folder",
+      };
+
+      // S3 destinations take the icon of their provider, so an R2 bucket shows Cloudflare's mark.
+      function iconKey(kindKey, item) {
+        if (kindKey === "s3") return S3_ICONS[item?.provider] || "bucket";
+        return KIND_ICONS[kindKey] || "bucket";
+      }
+
+      function markFor(kindKey, item) {
+        const icons = window.DESTINATION_ICONS || { brands: {}, glyphs: {} };
+        const key = iconKey(kindKey, item);
+        const brand = icons.brands[key];
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        if (brand) {
+          svg.innerHTML = `<path d="${brand.path}"/>`;
+          svg.style.fill = brand.color;
+        } else {
+          svg.innerHTML = icons.glyphs[key] || icons.glyphs.bucket || "";
+        }
+        return el(`span.mark.${brand ? "brand" : "glyph"}`, { "aria-hidden": "true", "data-icon": key }, svg);
+      }
+
+      function hostOf(destination) {
+        const urls = [destination.public_base_url, destination.server, destination.url, destination.RequestURL];
+        for (const url of urls) {
+          try {
+            if (url) return new URL(url).host;
+          } catch {}
+        }
+        if (destination.host) return destination.host;
+        if (destination.kind === "catbox") return "catbox.moe";
+        if (destination.kind === "litterbox") return "litterbox.catbox.moe";
+        if (destination.kind === "imgur") return "imgur.com";
+        if (destination.kind === "folder") return destination.path;
+        return "";
+      }
+
+      // mount() sizes the window itself, before any height animation can skew the measurement.
+      function renderStorage() {
+        if (storage.view === "picker") renderPicker();
+        else if (storage.view === "form") renderForm();
+        else renderList();
+      }
+
+      // -- Saved destinations
+
+      function renderList() {
+        const rows = config.destinations.map((destination) => {
+          const active = destination.id === config.active_destination;
+          return el(
+            "div.row.destination",
+            { "data-id": destination.id },
+            el(
+              "button.pick",
+              {
+                role: "radio",
+                "aria-checked": String(active),
+                onclick: () => activate(destination.id),
+              },
+              el("span.radio", { "aria-hidden": "true" }),
+              markFor(kindKeyOf(destination), destination),
+              el("span.names", {}, el("span.name", {}, destination.name), el("span.host", {}, hostOf(destination)))
+            ),
+            el(
+              "button.link",
+              {
+                onclick: (event) => {
+                  launchHero(event.currentTarget.closest(".destination").querySelector(".mark"), ".form-head .mark");
+                  openForm(kindKeyOf(destination), destination, true);
+                },
+              },
+              "Edit"
+            )
+          );
+        });
+        mount(
+          el("h2", {}, "Screenshots upload to"),
+          el("div.group", { role: "radiogroup", "aria-label": "Destinations" }, rows),
+          el(
+            "div.actions",
+            {},
+            el("button.button", { onclick: () => openPicker() }, "Add destination…"),
+            el("button.button", { id: "test-active", onclick: testActive }, "Test"),
+            el("span.result", { id: "list-result", role: "status" })
+          )
+        );
+      }
+
+      async function activate(id) {
+        if (id === config.active_destination) return;
+        const error = await save({ active_destination: id });
+        if (error) return;
+        const previous = config.destinations.find((item) => item.id !== id && storageView.querySelector(`.destination[data-id="${item.id}"] [aria-checked="true"]`));
+        renderStorage();
+        const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent");
+        const old = previous && storageView.querySelector(`.destination[data-id="${previous.id}"] .radio`);
+        animate(old, [{ borderWidth: "5px", borderColor: accent.trim() || "#0a84ff" }, { borderWidth: "1px" }], { spring: "snappy" });
+        const row = storageView.querySelector(`.destination[data-id="${id}"]`);
+        animate(row?.querySelector(".radio"), [{ transform: "scale(0.4)" }, { transform: "scale(1)" }], { spring: "bouncy" });
+        animate(row, [{ backgroundColor: "color-mix(in srgb, var(--accent) 14%, transparent)" }, { backgroundColor: "transparent" }], {
+          duration: 700,
+          easing: "ease-out",
+        });
+      }
+
+      async function testActive(event) {
+        const destination = config.destinations.find((item) => item.id === config.active_destination);
+        if (!destination) return;
+        await runTest(event.currentTarget, document.getElementById("list-result"), destination);
+      }
+
+      async function runTest(button, result, destination) {
+        button.disabled = true;
+        result.dataset.tone = "";
+        result.replaceChildren(spinner(), "Checking…");
+        try {
+          const message = await invoke("test_destination", { destination });
+          const icon = checkmark("result-check");
+          result.replaceChildren(icon, message);
+          result.dataset.tone = "success";
+          draw(icon.querySelector("path"));
+        } catch (error) {
+          result.textContent = String(error);
+          result.dataset.tone = "error";
+          shake(result);
+        } finally {
+          button.disabled = false;
+          animate(result, [{ opacity: 0, transform: "translateX(-4px)" }, { opacity: 1, transform: "none" }], { spring: "snappy" });
+          fitWindow();
+        }
+      }
+
+      // -- Picker
+
+      function openPicker() {
+        storage.view = "picker";
+        storage.motion = "forward";
+        renderStorage();
+      }
+
+      function renderPicker() {
+        const first = !config.destinations.length;
+        const groups = GROUPS.map(([group, label]) =>
+          el(
+            "div.picker-group",
+            {},
+            el("h3", {}, label),
+            el(
+              "div.tiles",
+              {},
+              Object.entries(KINDS)
+                .filter(([, kind]) => kind.group === group)
+                .map(([key, kind]) =>
+                  el(
+                    "button.tile",
+                    {
+                      "data-kind": key,
+                      onclick: (event) => {
+                        launchHero(event.currentTarget.querySelector(".mark"), ".form-head .mark");
+                        openForm(key, null, false);
+                      },
+                    },
+                    markFor(key, null),
+                    el("span.names", {}, el("span.name", {}, kind.title), el("span.host", {}, kind.blurb))
+                  )
+                )
+            )
+          )
+        );
+        mount(
+          first ? null : el("button.back.link", { onclick: () => ((storage.view = "list"), (storage.motion = "back"), renderStorage()) }, "‹ Destinations"),
+          el("h2", {}, first ? "Where should screenshots go?" : "Add a destination"),
+          el("p.lede", {}, "Pick a service you already use. You can add more later and switch with one click."),
+          groups,
+          el("p.note", {}, "Have a ShareX uploader (.sxcu)? Drop it anywhere on this window.")
+        );
+      }
+
+      // -- Form
+
+      function blankDraft(kindKey) {
+        const kind = KINDS[kindKey];
+        const draft = { id: "", name: kind.title, kind: kindKey === "r2_connect" ? "s3" : kindKey };
+        for (const field of kind.fields || []) {
+          if (field.value !== undefined) draft[field.key] = field.value;
+        }
+        return draft;
+      }
+
+      function openForm(kindKey, destination, editing) {
+        // Saved R2 setups are plain S3 destinations; edit them as such.
+        storage.kind = kindKey;
+        storage.draft = destination ? structuredClone(destination) : blankDraft(kindKey);
+        storage.editing = editing;
+        storage.note = "";
+        storage.view = "form";
+        storage.motion = "forward";
+        renderStorage();
+        const first = storageView.querySelector("input:not([type=checkbox]), select, textarea");
+        if (first) first.focus({ preventScroll: true });
+      }
+
+      function pairsToText(pairs) {
+        return Object.entries(pairs || {})
+          .map(([key, value]) => `${key}: ${value}`)
+          .join("\n");
+      }
+
+      function textToPairs(text) {
+        const pairs = {};
+        for (const line of text.split("\n")) {
+          const at = line.indexOf(":");
+          if (at > 0) pairs[line.slice(0, at).trim()] = line.slice(at + 1).trim();
+        }
+        return pairs;
+      }
+
+      function fieldControl(field, draft) {
+        const id = `field-${field.key}`;
+        const value = draft[field.key];
+        const update = (next) => {
+          draft[field.key] = next;
+        };
+        const placeholder = resolve(field.placeholder, draft) || "";
+        switch (field.type) {
+          case "select":
+            return el(
+              "select",
+              {
+                id,
+                onchange: (event) => {
+                  update(event.target.value);
+                  renderStorage();
+                },
+              },
+              field.options.map(([optionValue, label]) => el("option", { value: optionValue, selected: optionValue === value }, label))
+            );
+          case "checkbox":
+            return el("input.switch", { id, type: "checkbox", checked: Boolean(value), onchange: (event) => update(event.target.checked) });
+          case "pairs":
+            return el("textarea", {
+              id,
+              rows: 2,
+              spellcheck: false,
+              placeholder,
+              value: pairsToText(value),
+              oninput: (event) => update(textToPairs(event.target.value)),
+            });
+          case "folder":
+            return el(
+              "div.field",
+              {},
+              el("input", { id, type: "text", spellcheck: false, value: value || "", placeholder: "~/Sites/i", oninput: (event) => update(event.target.value) }),
+              el(
+                "button.button",
+                {
+                  onclick: async () => {
+                    const chosen = await tauri.dialog.open({ directory: true });
+                    if (chosen) {
+                      update(chosen);
+                      renderStorage();
+                    }
+                  },
+                },
+                "Choose…"
+              )
+            );
+          case "secret": {
+            const input = el("input", {
+              id,
+              type: "password",
+              spellcheck: false,
+              autocomplete: "off",
+              placeholder,
+              value: value || "",
+              oninput: (event) => update(event.target.value),
+            });
+            const toggle = el(
+              "button.icon-button",
+              {
+                "aria-label": "Show",
+                "aria-pressed": "false",
+                onclick: () => {
+                  const showing = input.type === "text";
+                  input.type = showing ? "password" : "text";
+                  toggle.setAttribute("aria-pressed", String(!showing));
+                  toggle.setAttribute("aria-label", showing ? "Show" : "Hide");
+                },
+              },
+              eyeIcon()
+            );
+            return el("div.field", {}, input, toggle);
+          }
+          default:
+            return el("input", {
+              id,
+              type: field.type === "number" ? "text" : field.type === "url" ? "url" : "text",
+              inputMode: field.type === "number" ? "numeric" : undefined,
+              spellcheck: false,
+              autocomplete: "off",
+              placeholder,
+              value: value === undefined || value === null || value === 0 ? "" : String(value),
+              oninput: (event) => update(field.type === "number" ? Number(event.target.value) || 0 : event.target.value),
+            });
+        }
+      }
+
+      /** The eight-spoke activity indicator macOS uses for short waits. */
+      function spinner() {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 16 16");
+        svg.setAttribute("class", "spinner");
+        svg.setAttribute("aria-hidden", "true");
+        svg.innerHTML = Array.from({ length: 8 }, (_, i) => {
+          const angle = i * 45;
+          return `<line x1="8" y1="2" x2="8" y2="4.6" transform="rotate(${angle} 8 8)" opacity="${0.25 + (i / 8) * 0.75}"/>`;
+        }).join("");
+        return svg;
+      }
+
+      function eyeIcon() {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        svg.innerHTML = '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>';
+        return svg;
+      }
+
+      function visibleFields(kind, draft) {
+        return (kind.fields || []).filter((field) => !field.showIf || field.showIf(draft));
+      }
+
+      function missingFields(kind, draft) {
+        return visibleFields(kind, draft).filter((field) => {
+          if (resolve(field.optional, draft) || field.type === "checkbox" || field.type === "select") return false;
+          const value = draft[field.key];
+          return value === undefined || value === null || String(value).trim() === "";
+        });
+      }
+
+      function renderForm() {
+        const kind = KINDS[storage.kind];
+        const draft = storage.draft;
+        const header = el(
+          "div.form-head",
+          {},
+          markFor(storage.kind, draft),
+          el("div", {}, el("h2", {}, storage.editing ? draft.name : kind.title), el("p.lede", {}, kind.blurb))
+        );
+        const back = el(
+          "button.back.link",
+          {
+            onclick: () => {
+              const home = storage.editing ? `.destination[data-id="${draft.id}"] .mark` : `.tile[data-kind="${storage.kind}"] .mark`;
+              launchHero(storageView.querySelector(".form-head .mark"), home);
+              storage.view = storage.editing ? "list" : "picker";
+              storage.motion = "back";
+              renderStorage();
+            },
+          },
+          storage.editing ? "‹ Destinations" : "‹ All destinations"
+        );
+        if (kind.connect) {
+          mount(back, header, renderConnectR2(draft));
+          return;
+        }
+
+        const rows = [
+          el("div.row", { "data-flip": "name" }, el("label", { for: "field-name" }, "Name"), el("input", { id: "field-name", type: "text", value: draft.name, oninput: (event) => (draft.name = event.target.value) })),
+          ...visibleFields(kind, draft).map((field) => {
+            const control = fieldControl(field, draft);
+            const label = el("label", { for: `field-${field.key}` }, field.label);
+            if (field.type === "checkbox") return el("div.row", { "data-flip": field.key }, label, control);
+            const help = field.help
+              ? el("p.sub", {}, field.help, field.link ? [" ", el("button.link", { onclick: () => tauri.shell.open(field.link[1]) }, field.link[0])] : null)
+              : null;
+            return el("div.row.stack", { "data-flip": field.key }, label, el("div.control", {}, control, help));
+          }),
+        ];
+
+        const result = el("span.result", { role: "status" }, storage.note);
+        const testButton = el(
+          "button.button",
+          {
+            onclick: (event) => {
+              const missing = missingFields(kind, draft);
+              if (missing.length) return flagMissing(missing, result);
+              runTest(event.currentTarget, result, draft);
+            },
+          },
+          "Test"
+        );
+        const saveButton = el(
+          "button.button.primary",
+          {
+            onclick: async () => {
+              const missing = missingFields(kind, draft);
+              if (missing.length) return flagMissing(missing, result);
+              await saveDestination(draft, result);
+            },
+          },
+          storage.editing ? "Save" : "Add destination"
+        );
+        const remove = storage.editing ? removeButton(draft) : null;
+
+        mount(
+          back,
+          header,
+          kind.importable ? el("div.import", {}, el("button.button", { onclick: chooseSxcu }, "Import .sxcu file…"), el("span.note", {}, "or drop one on this window")) : null,
+          el("div.group.form", {}, rows),
+          // Blocks below the form box ride along with its animated height; they don't slide on their own.
+          kind.note ? el("p.note", {}, kind.note) : null,
+          el("div.actions", {}, saveButton, testButton, result, el("span.spacer"), remove)
+        );
+      }
+
+      function flagMissing(missing, result) {
+        for (const field of missing) {
+          const control = storageView.querySelector(`#field-${field.key}`);
+          control?.setAttribute("aria-invalid", "true");
+          shake(control?.closest(".row"));
+        }
+        result.dataset.tone = "error";
+        result.textContent = `Add ${missing.map((field) => field.label.toLowerCase()).join(", ")}.`;
+        storageView.querySelector(`#field-${missing[0].key}`)?.focus();
+      }
+
+      function removeButton(draft) {
+        let armed = false;
+        const button = el(
+          "button.link.danger",
+          {
+            onclick: async () => {
+              if (!armed) {
+                armed = true;
+                button.textContent = "Click again to remove";
+                setTimeout(() => {
+                  armed = false;
+                  button.textContent = "Remove";
+                }, 3000);
+                return;
+              }
+              await invoke("delete_destination", { id: draft.id });
+              config = await invoke("get_config");
+              storage.view = config.destinations.length ? "list" : "picker";
+              storage.motion = "back";
+              renderStorage();
+              await refreshStatus();
+            },
+          },
+          "Remove"
+        );
+        return button;
+      }
+
+      async function saveDestination(draft, result) {
+        try {
+          await invoke("save_destination", { destination: draft, activate: true });
+          config = await invoke("get_config");
+          storage.view = "list";
+          storage.motion = "back";
+          renderStorage();
+          showSaveState(storage.editing ? "Saved" : `Screenshots now upload to ${draft.name}`);
+          await refreshStatus();
+        } catch (error) {
+          result.dataset.tone = "error";
+          result.textContent = String(error);
+        }
+      }
+
+      // -- Cloudflare R2 quick connect: two numbered steps, then Connect saves and switches to it.
+
+      function renderConnectR2(draft) {
+        const token = el("input", { id: "field-token", type: "password", spellcheck: false, autocomplete: "off", placeholder: "Paste the token" });
+        const bucket = el("input", { id: "field-bucket", type: "text", value: "screenshots", spellcheck: false });
+        const result = el("span.result", { role: "status" });
+        const connect = el(
+          "button.button.primary",
+          {
+            onclick: async () => {
+              if (!token.value.trim()) {
+                token.setAttribute("aria-invalid", "true");
+                token.focus();
+                return;
+              }
+              connect.disabled = true;
+              result.dataset.tone = "";
+              result.replaceChildren(spinner(), "Setting up your bucket…");
+              try {
+                const destination = await invoke("connect_r2", { token: token.value, bucket: bucket.value });
+                await saveDestination(destination, result);
+              } catch (error) {
+                result.dataset.tone = "error";
+                result.textContent = String(error);
+                fitWindow();
+              } finally {
+                connect.disabled = false;
+              }
+            },
+          },
+          "Connect"
+        );
+        return el(
+          "div",
+          {},
+          el(
+            "ol.steps",
+            {},
+            el(
+              "li",
+              {},
+              el("div", {}, el("strong", {}, "Create a token"), el("p.sub", {}, "Opens Cloudflare. Give it the Workers R2 Storage Edit permission.")),
+              el("button.button", { onclick: () => tauri.shell.open(R2_TOKEN_URL) }, "Create token…")
+            ),
+            el("li", {}, el("div.grow", {}, el("label", { for: "field-token" }, el("strong", {}, "Paste it here")), token))
+          ),
+          el("div.group.form", {}, el("div.row", {}, el("label", { for: "field-bucket" }, "Bucket name"), bucket)),
+          el("p.note", {}, "Screenshotr creates the bucket if needed and turns on its public r2.dev address."),
+          el("div.actions", {}, connect, result),
+          el("p.note", {}, "Already have access keys? ", el("button.link", { onclick: () => openForm("s3", { ...blankDraft("s3"), provider: "r2", name: "Cloudflare R2" }, false) }, "Enter them instead"))
+        );
+      }
+
+      // -- ShareX import
+
+      async function importSxcu(path) {
+        try {
+          const destination = await invoke("import_sxcu", { path });
+          selectTab("storage");
+          openForm("custom_http", destination, false);
+          storage.note = `Imported ${path.split(/[\\/]/).pop()}. Check it, then add it.`;
+          renderStorage();
+        } catch (error) {
+          selectTab("storage");
+          showSaveState(String(error), "error");
+        }
+      }
+
+      async function chooseSxcu() {
+        const chosen = await tauri.dialog.open({ filters: [{ name: "ShareX uploader", extensions: ["sxcu"] }] });
+        if (chosen) importSxcu(Array.isArray(chosen) ? chosen[0] : chosen);
+      }
+
+      // Dropped ShareX uploaders are imported; any other files are uploaded.
+      tauri.event.listen("tauri://file-drop", (event) => {
+        const paths = event.payload || [];
+        const uploader = paths.find((path) => path.toLowerCase().endsWith(".sxcu"));
+        if (uploader) return importSxcu(uploader);
+        if (paths.length) invoke("upload_files", { paths });
+      });
+
+      // ---- Link format -----------------------------------------------------------------------
+
+      // A segmented control: one raised pill that springs to the chosen segment.
+      const formatControl = document.getElementById("link-format");
+      const formatSegments = [...formatControl.querySelectorAll("button")];
+      const formatIndicator = formatControl.querySelector(".segment-indicator");
+
+      function showFormat(value, instant) {
+        const chosen = formatSegments.find((segment) => segment.dataset.value === value) || formatSegments[0];
+        for (const segment of formatSegments) {
+          const on = segment === chosen;
+          segment.setAttribute("aria-checked", String(on));
+          segment.tabIndex = on ? 0 : -1;
+        }
+        formatIndicator.classList.toggle("instant", instant);
+        formatIndicator.style.width = `${chosen.offsetWidth}px`;
+        formatIndicator.style.transform = `translateX(${chosen.offsetLeft}px)`;
+        if (instant) requestAnimationFrame(() => formatIndicator.classList.remove("instant"));
+      }
+
+      async function chooseFormat(value) {
+        const previous = config.link_format || "url";
+        if (value === previous) return;
+        showFormat(value, false);
+        const error = await save({ link_format: value });
+        if (error) showFormat(previous, false);
+      }
+
+      for (const segment of formatSegments) segment.addEventListener("click", () => chooseFormat(segment.dataset.value));
+      formatControl.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        event.preventDefault();
+        const index = formatSegments.findIndex((segment) => segment.getAttribute("aria-checked") === "true");
+        const next = formatSegments[(index + (event.key === "ArrowRight" ? 1 : formatSegments.length - 1)) % formatSegments.length];
+        chooseFormat(next.dataset.value);
+        next.focus();
+      });
+
+      // ---- Updates ---------------------------------------------------------------------------
+
+      const updateButton = document.getElementById("update-button");
+      const updateResult = document.getElementById("update-result");
+      let availableVersion = null;
+
+      function offerUpdate(version) {
+        availableVersion = version;
+        updateButton.classList.add("primary");
+        roll(updateButton, `Install ${version} and Relaunch`);
+        roll(updateResult, `Screenshotr ${version} is available.`);
+        setBanner("warning", `Screenshotr ${version} is available.`, "Install…", () => selectTab("about"));
+      }
+
+      updateButton.addEventListener("click", async () => {
+        updateButton.disabled = true;
+        try {
+          if (availableVersion) {
+            updateResult.replaceChildren(spinner(), `Downloading ${availableVersion}…`);
+            await invoke("install_update");
+            return;
+          }
+          updateResult.replaceChildren(spinner(), "Checking…");
+          const result = await invoke("check_for_update");
+          if (result.available) offerUpdate(result.version);
+          else roll(updateResult, "You’re up to date.");
+        } catch (error) {
+          roll(updateResult, String(error));
+          shake(updateButton);
+        } finally {
+          updateButton.disabled = false;
+        }
+      });
+
+      tauri.event.listen("update-available", (event) => offerUpdate(event.payload));
+
+      // ---- Switches --------------------------------------------------------------------------
+
+      for (const toggle of document.querySelectorAll("input[type=checkbox][data-key]")) {
+        toggle.addEventListener("change", async () => {
+          const error = await save({ [toggle.dataset.key]: toggle.checked });
+          if (error) toggle.checked = !toggle.checked;
+        });
+      }
+
+      document.getElementById("open-pictures").addEventListener("click", () => invoke("open_pictures_folder"));
+
+      // ---- Shortcut recorder -----------------------------------------------------------------
+
+      const MAC_SYMBOLS = { Cmd: "⌘", Ctrl: "⌃", Alt: "⌥", Shift: "⇧", Super: "⌘" };
+      const MAC_ORDER = ["Ctrl", "Alt", "Shift", "Cmd", "Super"];
+      const KEY_NAMES = { Up: "↑", Down: "↓", Left: "←", Right: "→" };
+      const shortcutNote = document.getElementById("shortcut-note");
+      const defaultNote = shortcutNote.textContent;
+      let recording = null;
+
+      function hotkeyParts(hotkey) {
+        if (!hotkey) return [];
+        const parts = hotkey.split("+").map((part) => {
+          const lower = part.toLowerCase();
+          if (lower === "command" || lower === "cmd" || lower === "cmdorctrl") return "Cmd";
+          if (lower === "control" || lower === "ctrl") return "Ctrl";
+          if (lower === "option" || lower === "alt") return "Alt";
+          if (lower === "shift") return "Shift";
+          if (lower === "super") return isMac ? "Cmd" : "Super";
+          return part.length === 1 ? part.toUpperCase() : part;
+        });
+        const modifiers = parts.filter((part) => MAC_ORDER.includes(part));
+        const keys = parts.filter((part) => !MAC_ORDER.includes(part));
+        if (isMac) modifiers.sort((a, b) => MAC_ORDER.indexOf(a) - MAC_ORDER.indexOf(b));
+        return [...modifiers, ...keys];
+      }
+
+      const keyLabel = (part) => (isMac ? MAC_SYMBOLS[part] || KEY_NAMES[part] || part : KEY_NAMES[part] || part);
+
+      /** While recording, the modifiers being held appear live, so you can see the combo build. */
+      function renderHeld(button, event) {
+        const held = [];
+        if (event.ctrlKey) held.push("Ctrl");
+        if (event.altKey) held.push("Alt");
+        if (event.shiftKey) held.push("Shift");
+        if (event.metaKey) held.push(isMac ? "Cmd" : "Super");
+        const shown = [...button.querySelectorAll("kbd")].map((key) => key.dataset.part);
+        if (shown.join() === held.join()) return;
+        if (!held.length) return renderRecorder(button);
+        button.replaceChildren(
+          ...held.map((part) => {
+            const key = document.createElement("kbd");
+            key.dataset.part = part;
+            key.className = "held";
+            key.textContent = keyLabel(part);
+            if (!shown.includes(part)) animate(key, [{ opacity: 0, transform: "scale(0.5)" }, { opacity: 1, transform: "none" }], { spring: "bouncy" });
+            return key;
+          })
+        );
+      }
+
+      function renderRecorder(button, fresh = false) {
+        button.replaceChildren();
+        if (button === recording) {
+          const hint = document.createElement("span");
+          hint.className = "placeholder";
+          hint.textContent = "Press keys…";
+          button.append(hint);
+          return;
+        }
+        const parts = hotkeyParts(config[button.dataset.key]);
+        if (!parts.length) {
+          const none = document.createElement("span");
+          none.className = "placeholder";
+          none.textContent = "Off";
+          button.append(none);
+          return;
+        }
+        parts.forEach((part, index) => {
+          const key = document.createElement("kbd");
+          key.dataset.part = part;
+          key.textContent = keyLabel(part);
+          button.append(key);
+          // Locking in: each keycap drops into place, then the field acknowledges with a glow.
+          if (fresh) {
+            animate(key, [{ transform: "translateY(-6px) scale(1.15)" }, { transform: "none" }], { spring: "bouncy", delay: index * 45 });
+          }
+        });
+        if (fresh) {
+          animate(button, [{ boxShadow: "0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent)" }, { boxShadow: "0 0 0 0 transparent" }], {
+            duration: 700,
+            easing: "ease-out",
+            delay: parts.length * 45,
+          });
+        }
+      }
+
+      function keyFromEvent(event) {
+        const code = event.code;
+        let match;
+        if ((match = code.match(/^Key([A-Z])$/))) return match[1];
+        if ((match = code.match(/^Digit(\d)$/))) return match[1];
+        if ((match = code.match(/^F(\d{1,2})$/))) return `F${match[1]}`;
+        if (code === "Space") return "Space";
+        if (code === "PrintScreen") return "PrintScreen";
+        if ((match = code.match(/^Arrow(Up|Down|Left|Right)$/))) return match[1];
+        return null;
+      }
+
+      async function startRecording(button) {
+        if (recording) await stopRecording();
+        recording = button;
+        button.classList.add("recording");
+        renderRecorder(button);
+        shortcutNote.classList.remove("error");
+        shortcutNote.textContent = "Press the new shortcut. Esc cancels.";
+        await invoke("set_hotkeys_paused", { paused: true }).catch(() => {});
+      }
+
+      async function stopRecording() {
+        const button = recording;
+        recording = null;
+        if (!button) return;
+        button.classList.remove("recording");
+        renderRecorder(button);
+        await invoke("set_hotkeys_paused", { paused: false }).catch(() => {});
+      }
+
+      async function commitShortcut(button, hotkey) {
+        const key = button.dataset.key;
+        recording = null;
+        button.classList.remove("recording");
+        const error = await save({ [key]: hotkey });
+        renderRecorder(button, !error);
+        if (error) {
+          shortcutNote.textContent = error;
+          shortcutNote.classList.add("error");
+          shake(button);
+        } else {
+          shortcutNote.textContent = defaultNote;
+          shortcutNote.classList.remove("error");
+        }
+        // set_config registers the saved (or restored) shortcuts, which ends the pause.
+      }
+
+      for (const button of document.querySelectorAll(".recorder")) {
+        button.addEventListener("click", () => (recording === button ? stopRecording() : startRecording(button)));
+        button.addEventListener("blur", () => recording === button && stopRecording());
+        button.addEventListener("keyup", (event) => recording === button && renderHeld(button, event));
+        button.addEventListener("keydown", (event) => {
+          if (recording !== button) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.key === "Escape") return stopRecording();
+          if (event.key === "Backspace" || event.key === "Delete") return commitShortcut(button, "");
+          const key = keyFromEvent(event);
+          if (!key) return renderHeld(button, event);
+          const modifiers = [];
+          if (event.metaKey) modifiers.push(isMac ? "Cmd" : "Super");
+          if (event.ctrlKey) modifiers.push("Ctrl");
+          if (event.altKey) modifiers.push("Alt");
+          if (event.shiftKey) modifiers.push("Shift");
+          const standalone = /^F\d+$/.test(key) || key === "PrintScreen";
+          if (!modifiers.length && !standalone) {
+            shortcutNote.textContent = "Add at least one modifier, like ⌘ or ⌥.";
+            shortcutNote.classList.add("error");
+            shake(button);
+            return;
+          }
+          commitShortcut(button, [...modifiers, key].join("+"));
+        });
+      }
+
+      // ---- Status ----------------------------------------------------------------------------
+
+      const banner = document.getElementById("banner");
+      const bannerText = document.getElementById("banner-text");
+      const bannerAction = document.getElementById("banner-action");
+      let bannerHandler = null;
+
+      bannerAction.addEventListener("click", () => bannerHandler && bannerHandler());
+
+      function setBanner(tone, text, actionLabel, handler) {
+        const becameReady = banner.dataset.tone && banner.dataset.tone !== tone && tone === "ready";
+        banner.dataset.tone = tone;
+        roll(bannerText, text);
+        if (becameReady) animate(banner.querySelector(".dot"), [{ transform: "scale(2.2)" }, { transform: "none" }], { spring: "bouncy" });
+        bannerAction.hidden = !actionLabel;
+        bannerAction.textContent = actionLabel || "";
+        bannerHandler = handler || null;
+      }
+
+      async function refreshStatus() {
+        status = await invoke("get_status");
+        document.getElementById("version").textContent = status.version;
+        if (!status.configured) {
+          setBanner("warning", "Choose where your screenshots go.", "Choose…", () => selectTab("storage"));
+        } else if (!status.screen_recording) {
+          setBanner("warning", "Screenshotr needs Screen Recording access.", "Open System Settings", () =>
+            invoke("open_system_settings", { pane: "screen_recording" })
+          );
+        } else if (!status.hotkeys_registered) {
+          setBanner("warning", "A shortcut is in use by another app. Pick a different one below.");
+        } else {
+          setBanner("ready", `Ready. Links go to ${status.public_host || status.destination_name}.`);
+        }
+      }
+
+      // ---- Keyboard --------------------------------------------------------------------------
+
+      document.addEventListener("keydown", (event) => {
+        if (recording) return;
+        if (event.metaKey && event.key === "w") {
+          event.preventDefault();
+          appWindow.close();
+        }
+        if (event.metaKey && ["1", "2", "3"].includes(event.key)) {
+          event.preventDefault();
+          selectTab(tabs[Number(event.key) - 1].dataset.tab);
+        }
+      });
+
+      // ---- Start -----------------------------------------------------------------------------
+
+      async function init() {
+        config = await invoke("get_config");
+        config.destinations = config.destinations || [];
+        document.querySelector("main").inert = false;
+        for (const toggle of document.querySelectorAll("input[type=checkbox][data-key]")) {
+          toggle.checked = Boolean(config[toggle.dataset.key]);
+        }
+        for (const button of document.querySelectorAll(".recorder")) renderRecorder(button);
+        showFormat(config.link_format || "url", true);
+        storage.view = config.destinations.length ? "list" : "picker";
+        renderStorage();
+        await refreshStatus();
+        document.getElementById("login-row").hidden = status.platform !== "macos";
+        if (!isMac) shortcutNote.textContent = defaultNote;
+        selectTab(window.__SETTINGS_TAB__ || "general");
+        await appWindow.show();
+        await appWindow.setFocus();
+      }
+
+      tauri.event.listen("settings-tab", (event) => selectTab(event.payload));
+      window.addEventListener("focus", () => refreshStatus().catch(() => {}));
+      init().catch((error) => {
+        showSaveState(`Couldn't load settings: ${error}`, "error");
+        appWindow.show();
+      });
+    </script>
+  </body>
+</html>

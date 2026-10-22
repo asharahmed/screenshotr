@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload History</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --window: #f2f2f4;
+        --group: #ffffff;
+        --ink: #17191d;
+        --ink: -apple-system-label;
+        --muted: #6b7079;
+        --muted: -apple-system-secondary-label;
+        --faint: #9a9ea6;
+        --faint: -apple-system-tertiary-label;
+        --hairline: #e3e5e9;
+        --hairline: -apple-system-separator;
+        --field: #ffffff;
+        --field: -apple-system-text-background;
+        --field-line: #d3d6db;
+        --well: #e7e8ec;
+        --menu: rgba(246, 246, 248, 0.92);
+        --danger: #c8402f;
+        --danger: -apple-system-red;
+        --accent: #0a84ff;
+        --accent: -apple-system-control-accent;
+        --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        --rounded: ui-rounded, "SF Pro Rounded", -apple-system, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --window: #1e1e20;
+          --group: #2a2a2d;
+          --field: #232326;
+          --field-line: #3d4046;
+          --well: #333438;
+          --menu: rgba(40, 40, 44, 0.92);
+        }
+      }
+
+      body.inactive {
+        --accent: #a1a1a6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        background: var(--window);
+        color: var(--ink);
+        font: 13px/18px var(--sans);
+        -webkit-font-smoothing: antialiased;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      :focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        outline-offset: 1px;
+      }
+
+      /* Title bar: the traffic lights sit at the left; the title and search share their row. */
+      .toolbar {
+        flex: none;
+        height: 52px;
+        padding: 0 14px 0 86px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .toolbar h1 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .toolbar .count {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .toolbar .spacer {
+        flex: 1;
+      }
+
+      .search {
+        position: relative;
+        width: 220px;
+      }
+
+      .search svg {
+        position: absolute;
+        left: 9px;
+        top: 7px;
+        width: 13px;
+        height: 13px;
+        fill: none;
+        stroke: var(--muted);
+        stroke-width: 1.8;
+        stroke-linecap: round;
+      }
+
+      .search input {
+        width: 100%;
+        height: 28px;
+        padding: 0 10px 0 28px;
+        border: 1px solid var(--field-line);
+        border-radius: 999px;
+        background: var(--field);
+        -webkit-user-select: text;
+        user-select: text;
+      }
+
+      .icon-button {
+        width: 30px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--field-line);
+        border-radius: 999px;
+        background: var(--field);
+        transition: transform var(--spring-snappy-duration, 200ms) var(--spring-snappy, ease-out);
+      }
+
+      .icon-button:active {
+        transform: scale(0.94);
+      }
+
+      .icon-button svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      main {
+        position: relative;
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px 18px 24px;
+      }
+
+      /* Day sections with headers that stay put while their uploads scroll under them. */
+      .day h2 {
+        position: sticky;
+        top: -6px;
+        z-index: 3;
+        margin: 0 -18px;
+        padding: 12px 20px 8px;
+        background: color-mix(in srgb, var(--window) 88%, transparent);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        position: relative;
+        min-width: 0;
+        padding: 6px;
+        border-radius: 14px;
+        outline: none;
+        transition: background-color 140ms ease;
+      }
+
+      .card:hover {
+        background: color-mix(in srgb, var(--ink) 4%, transparent);
+      }
+
+      .card[aria-selected="true"] {
+        background: color-mix(in srgb, var(--accent) 16%, transparent);
+      }
+
+      .card:focus-visible {
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+
+      .thumb {
+        position: relative;
+        aspect-ratio: 16 / 10;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 9px;
+        background: var(--well);
+        box-shadow: inset 0 0 0 0.5px var(--hairline);
+      }
+
+      .thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 260ms ease;
+      }
+
+      .thumb img.loaded {
+        opacity: 1;
+      }
+
+      .card[aria-selected="true"] .thumb {
+        box-shadow: 0 0 0 2.5px var(--accent);
+      }
+
+      /* Files without a preview: a document glyph with the extension. */
+      .doc {
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        color: var(--muted);
+      }
+
+      .doc svg {
+        width: 30px;
+        height: 30px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.4;
+        stroke-linejoin: round;
+      }
+
+      .doc span {
+        font: 600 10px/1 var(--rounded);
+        letter-spacing: 0.04em;
+      }
+
+      .name {
+        margin: 7px 2px 0;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .meta {
+        margin: 1px 2px 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 15px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Quick actions over the thumbnail on hover. */
+      .quick {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 2;
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transform: translateY(-3px);
+        transition:
+          opacity 140ms ease,
+          transform var(--spring-snappy-duration, 200ms) var(--spring-snappy, ease-out);
+      }
+
+      .card:hover .quick,
+      .card:focus-within .quick {
+        opacity: 1;
+        transform: none;
+      }
+
+      .quick button {
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        border: 0.5px solid rgba(255, 255, 255, 0.25);
+        border-radius: 50%;
+        background: rgba(30, 30, 34, 0.62);
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        transition: transform var(--spring-snappy-duration, 200ms) var(--spring-snappy, ease-out);
+      }
+
+      .quick button:active {
+        transform: scale(0.9);
+      }
+
+      .quick svg {
+        width: 13px;
+        height: 13px;
+        fill: none;
+        stroke: #fff;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* Empty state. */
+      .empty {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        text-align: center;
+        padding-bottom: 30px;
+      }
+
+      .empty img {
+        width: 84px;
+        height: 84px;
+        margin-bottom: 10px;
+        -webkit-user-drag: none;
+      }
+
+      .empty h2 {
+        margin: 0;
+        font: 700 17px/22px var(--rounded);
+      }
+
+      .empty p {
+        margin: 0;
+        max-width: 340px;
+        color: var(--muted);
+      }
+
+      .button {
+        height: 28px;
+        padding: 0 14px;
+        border: 1px solid var(--field-line);
+        border-radius: 999px;
+        background: var(--field);
+        white-space: nowrap;
+        transition: transform var(--spring-snappy-duration, 200ms) var(--spring-snappy, ease-out);
+      }
+
+      .button:active {
+        transform: scale(0.95);
+      }
+
+      .button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .button.danger {
+        border-color: var(--danger);
+        background: var(--danger);
+        color: #fff;
+      }
+
+      .empty .button {
+        margin-top: 14px;
+      }
+
+      /* Status line along the bottom. */
+      footer {
+        flex: none;
+        height: 30px;
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid var(--hairline);
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      /* A context menu drawn like an AppKit menu. */
+      .menu {
+        position: fixed;
+        z-index: 20;
+        min-width: 210px;
+        padding: 5px;
+        border-radius: 10px;
+        background: var(--menu);
+        -webkit-backdrop-filter: blur(24px) saturate(1.6);
+        backdrop-filter: blur(24px) saturate(1.6);
+        box-shadow:
+          0 0 0 0.5px color-mix(in srgb, var(--ink) 18%, transparent),
+          0 10px 30px rgba(0, 0, 0, 0.22);
+        transform-origin: top left;
+      }
+
+      .menu button {
+        width: 100%;
+        height: 24px;
+        padding: 0 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 0;
+        border-radius: 6px;
+        background: none;
+        text-align: left;
+      }
+
+      .menu button:hover,
+      .menu button:focus-visible {
+        outline: none;
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .menu button[disabled] {
+        color: var(--faint);
+        background: none;
+      }
+
+      .menu kbd {
+        font: 12px var(--sans);
+        color: inherit;
+        opacity: 0.6;
+      }
+
+      .menu hr {
+        margin: 5px 10px;
+        border: 0;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .menu .danger {
+        color: var(--danger);
+      }
+
+      /* A sheet that drops from the title bar, like an AppKit sheet, for confirming deletion. */
+      .scrim {
+        position: fixed;
+        inset: 52px 0 0;
+        z-index: 30;
+        background: rgba(0, 0, 0, 0.12);
+      }
+
+      .sheet {
+        position: fixed;
+        top: 52px;
+        left: 50%;
+        z-index: 31;
+        width: 360px;
+        margin-left: -180px;
+        padding: 18px 20px 16px;
+        border-radius: 0 0 14px 14px;
+        background: var(--group);
+        box-shadow:
+          0 0 0 0.5px var(--hairline),
+          0 18px 40px rgba(0, 0, 0, 0.25);
+        transform-origin: top center;
+      }
+
+      .sheet h3 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .sheet p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 17px;
+      }
+
+      .sheet .actions {
+        margin-top: 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar" data-tauri-drag-region>
+      <h1 data-tauri-drag-region>Upload History</h1>
+      <span class="count" id="count" data-tauri-drag-region></span>
+      <span class="spacer" data-tauri-drag-region></span>
+      <button class="icon-button" id="upload" title="Upload Files…" aria-label="Upload Files">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
+      </button>
+      <label class="search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" /><path d="m10.6 10.6 3.4 3.4" /></svg>
+        <input type="search" id="search" placeholder="Search" aria-label="Search uploads" spellcheck="false" />
+      </label>
+    </header>
+
+    <main id="list" tabindex="-1"></main>
+
+    <footer>
+      <span id="status" aria-live="polite"></span>
+      <span id="hint">Double-click to open. ⌘C copies.</span>
+    </footer>
+
+    <script src="motion.js"></script>
+    <script>
+      const tauri = window.__TAURI__;
+      const invoke = tauri.invoke || (tauri.tauri && tauri.tauri.invoke);
+      const appWindow = tauri.window.appWindow;
+      const { animate, cascade, roll } = window.Motion;
+      window.addEventListener("blur", () => document.body.classList.add("inactive"));
+      window.addEventListener("focus", () => document.body.classList.remove("inactive"));
+
+      const list = document.getElementById("list");
+      const search = document.getElementById("search");
+      const statusLine = document.getElementById("status");
+      const ICONS = {
+        copy: '<rect x="8" y="8" width="11" height="11" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/>',
+        open: '<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+        doc: '<path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5"/>',
+      };
+
+      let items = [];
+      let selected = new Set();
+      let anchor = null;
+      const thumbnails = new Map();
+
+      // ---- Helpers ---------------------------------------------------------------------------
+
+      function el(tag, attrs = {}, ...children) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(attrs)) {
+          if (value === undefined || value === null || value === false) continue;
+          if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+          else if (key === "html") node.innerHTML = value;
+          else if (key in node && !key.includes("-")) node[key] = value;
+          else node.setAttribute(key, value === true ? "" : value);
+        }
+        node.append(...children.flat().filter((child) => child !== null && child !== undefined && child !== false));
+        return node;
+      }
+
+      function svg(paths, viewBox = "0 0 24 24") {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        node.setAttribute("viewBox", viewBox);
+        node.setAttribute("aria-hidden", "true");
+        node.innerHTML = paths;
+        return node;
+      }
+
+      function hostOf(url) {
+        try {
+          return new URL(url).host;
+        } catch {
+          return "";
+        }
+      }
+
+      function dayLabel(date) {
+        const today = new Date();
+        const start = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const days = Math.round((start(today) - start(date)) / 86400000);
+        if (days === 0) return "Today";
+        if (days === 1) return "Yesterday";
+        if (days < 7) return date.toLocaleDateString(undefined, { weekday: "long" });
+        return date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+      }
+
+      function timeLabel(date) {
+        return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      }
+
+      function sizeLabel(bytes) {
+        if (!bytes) return "";
+        const units = ["bytes", "KB", "MB", "GB"];
+        let value = bytes;
+        let unit = 0;
+        while (value >= 1000 && unit < units.length - 1) {
+          value /= 1000;
+          unit += 1;
+        }
+        return `${unit === 0 ? value : value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
+      }
+
+      function extensionOf(item) {
+        const fromUrl = item.url.split("?")[0].split("/").pop() || "";
+        const ext = fromUrl.includes(".") ? fromUrl.split(".").pop() : "";
+        return ext.slice(0, 5).toUpperCase() || "FILE";
+      }
+
+      function setStatus(text) {
+        roll(statusLine, text);
+      }
+
+      function visibleItems() {
+        const query = search.value.trim().toLowerCase();
+        if (!query) return items;
+        return items.filter((item) => `${item.name} ${item.url} ${item.destination_name}`.toLowerCase().includes(query));
+      }
+
+      // ---- Rendering -------------------------------------------------------------------------
+
+      // Thumbnails load as cards scroll into view.
+      const thumbObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            thumbObserver.unobserve(entry.target);
+            loadThumbnail(entry.target);
+          }
+        },
+        { root: list, rootMargin: "300px" }
+      );
+
+      async function loadThumbnail(img) {
+        const id = img.dataset.id;
+        let src = thumbnails.get(id);
+        if (!src) {
+          src = await invoke("history_thumbnail", { id }).catch(() => null);
+          if (!src) return;
+          thumbnails.set(id, src);
+        }
+        img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+        img.src = src;
+      }
+
+      function cardFor(item) {
+        const date = new Date(item.created_at * 1000);
+        const thumb = item.has_thumbnail
+          ? el("div", { className: "thumb" }, el("img", { alt: "", "data-id": item.id, draggable: false }))
+          : el("div", { className: "thumb" }, el("div", { className: "doc" }, svg(ICONS.doc), el("span", {}, extensionOf(item))));
+        const card = el(
+          "div",
+          {
+            className: "card",
+            tabindex: 0,
+            role: "option",
+            "aria-selected": String(selected.has(item.id)),
+            "data-id": item.id,
+            title: item.url,
+            onclick: (event) => select(item.id, event),
+            ondblclick: () => invoke("history_open", { id: item.id }),
+            oncontextmenu: (event) => {
+              event.preventDefault();
+              if (!selected.has(item.id)) select(item.id, {});
+              openMenu(event.clientX, event.clientY);
+            },
+          },
+          thumb,
+          el(
+            "div",
+            { className: "quick" },
+            el("button", { title: "Copy Link", "aria-label": "Copy link", onclick: (event) => (event.stopPropagation(), copy([item.id])) }, svg(ICONS.copy)),
+            el("button", { title: "Open in Browser", "aria-label": "Open in browser", onclick: (event) => (event.stopPropagation(), invoke("history_open", { id: item.id })) }, svg(ICONS.open))
+          ),
+          el("p", { className: "name" }, item.name || "Upload"),
+          // The host is in the tooltip and searchable; the card keeps to what fits.
+          el("p", { className: "meta" }, [timeLabel(date), sizeLabel(item.size)].filter(Boolean).join(" · "))
+        );
+        return card;
+      }
+
+      function render({ animateIn = false } = {}) {
+        const shown = visibleItems();
+        document.getElementById("count").textContent = items.length ? `${items.length} upload${items.length === 1 ? "" : "s"}` : "";
+        document.getElementById("hint").hidden = !items.length;
+        if (!items.length) {
+          list.replaceChildren(
+            el(
+              "div",
+              { className: "empty" },
+              el("img", { src: "app-icon.png", alt: "" }),
+              el("h2", {}, "No uploads yet"),
+              el("p", {}, "Take a screenshot, or drop files here to upload them. Everything you upload shows up in this window."),
+              el("button", { className: "button primary", onclick: () => invoke("upload_chooser") }, "Upload Files…")
+            )
+          );
+          if (animateIn) cascade(list.querySelectorAll(".empty > *"), { step: 50 });
+          return;
+        }
+        if (!shown.length) {
+          list.replaceChildren(el("div", { className: "empty" }, el("h2", {}, "No matches"), el("p", {}, `Nothing in your history matches “${search.value.trim()}”.`)));
+          return;
+        }
+        const before = new Map([...list.querySelectorAll(".card")].map((card) => [card.dataset.id, card.getBoundingClientRect()]));
+        const days = new Map();
+        for (const item of shown) {
+          const label = dayLabel(new Date(item.created_at * 1000));
+          if (!days.has(label)) days.set(label, []);
+          days.get(label).push(item);
+        }
+        list.replaceChildren(
+          ...[...days].map(([label, dayItems]) =>
+            el("section", { className: "day" }, el("h2", {}, label), el("div", { className: "grid", role: "listbox", "aria-multiselectable": "true" }, dayItems.map(cardFor)))
+          )
+        );
+        for (const img of list.querySelectorAll(".thumb img")) {
+          if (thumbnails.has(img.dataset.id)) loadThumbnail(img);
+          else thumbObserver.observe(img);
+        }
+        // Cards that stayed slide to their new places; new ones grow in.
+        const cards = [...list.querySelectorAll(".card")];
+        if (animateIn) {
+          cascade(cards.slice(0, 24), { from: "translateY(10px) scale(0.97)", step: 18 });
+          return;
+        }
+        for (const card of cards) {
+          const from = before.get(card.dataset.id);
+          const to = card.getBoundingClientRect();
+          if (from && (Math.abs(from.left - to.left) > 0.5 || Math.abs(from.top - to.top) > 0.5)) {
+            animate(card, [{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)` }, { transform: "none" }], { spring: "smooth" });
+          } else if (!from && before.size) {
+            animate(card, [{ opacity: 0, transform: "scale(0.8)" }, { opacity: 1, transform: "none" }], { spring: "bouncy" });
+          }
+        }
+      }
+
+      // ---- Selection -------------------------------------------------------------------------
+
+      function select(id, event) {
+        const order = visibleItems().map((item) => item.id);
+        if (event.shiftKey && anchor) {
+          const [a, b] = [order.indexOf(anchor), order.indexOf(id)].sort((x, y) => x - y);
+          selected = new Set(order.slice(a, b + 1));
+        } else if (event.metaKey) {
+          selected.has(id) ? selected.delete(id) : selected.add(id);
+          anchor = id;
+        } else {
+          selected = new Set([id]);
+          anchor = id;
+        }
+        for (const card of list.querySelectorAll(".card")) card.setAttribute("aria-selected", String(selected.has(card.dataset.id)));
+        list.querySelector(`.card[data-id="${id}"]`)?.focus({ preventScroll: true });
+        setStatus(selected.size > 1 ? `${selected.size} selected` : "");
+      }
+
+      function moveSelection(step, extend) {
+        const order = visibleItems().map((item) => item.id);
+        if (!order.length) return;
+        const current = order.indexOf(anchor);
+        const next = order[Math.max(0, Math.min(order.length - 1, current === -1 ? 0 : current + step))];
+        select(next, { shiftKey: extend });
+        anchor = next;
+        list.querySelector(`.card[data-id="${next}"]`)?.scrollIntoView({ block: "nearest", behavior: Motion.reduced ? "auto" : "smooth" });
+      }
+
+      function columns() {
+        const grid = list.querySelector(".grid");
+        return grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : 1;
+      }
+
+      // ---- Actions ---------------------------------------------------------------------------
+
+      async function copy(ids) {
+        if (!ids.length) return;
+        try {
+          setStatus(await invoke("history_copy", { ids }));
+          for (const id of ids) {
+            animate(list.querySelector(`.card[data-id="${id}"] .thumb`), [{ transform: "scale(0.94)" }, { transform: "none" }], { spring: "bouncy" });
+          }
+        } catch (error) {
+          setStatus(String(error));
+        }
+      }
+
+      async function remove(ids, fromServer) {
+        if (!ids.length) return;
+        // Cards shrink away first, then the rest close the gap.
+        await Promise.all(
+          ids.map((id) => {
+            const card = list.querySelector(`.card[data-id="${id}"]`);
+            const out = card && !Motion.reduced
+              ? card.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(0.85)" }], { duration: 180, easing: "ease-in", fill: "forwards" })
+              : null;
+            return out ? out.finished.catch(() => {}) : Promise.resolve();
+          })
+        );
+        try {
+          const message = await invoke("history_remove", { ids, fromServer });
+          selected = new Set();
+          setStatus(message);
+        } catch (error) {
+          setStatus(String(error));
+          render();
+        }
+      }
+
+      function confirmDelete(ids) {
+        const chosen = items.filter((item) => ids.includes(item.id));
+        if (!chosen.length) return;
+        const deletable = chosen.filter((item) => item.deletable);
+        const hosts = [...new Set(chosen.map((item) => hostOf(item.url)).filter(Boolean))];
+        const noun = chosen.length === 1 ? `“${chosen[0].name}”` : `${chosen.length} uploads`;
+        const scrim = el("div", { className: "scrim" });
+        const close = () => {
+          const outs = [sheet, scrim].map((node) =>
+            node.animate([{ opacity: 1 }, { opacity: 0, transform: node === sheet ? "translateY(-12px)" : "none" }], { duration: 160, easing: "ease-in", fill: "forwards" })
+          );
+          Promise.all(outs.map((out) => out.finished.catch(() => {}))).then(() => (scrim.remove(), sheet.remove()));
+        };
+        const sheet = el(
+          "div",
+          { className: "sheet", role: "dialog", "aria-modal": "true", "aria-labelledby": "sheet-title" },
+          el("h3", { id: "sheet-title" }, `Delete ${noun}?`),
+          el(
+            "p",
+            {},
+            deletable.length
+              ? `This removes ${chosen.length === 1 ? "it" : "them"} from ${hosts.join(", ") || "the server"}, so the link${chosen.length === 1 ? " stops" : "s stop"} working.`
+              : `${hosts.join(", ") || "This destination"} can't delete from here. Screenshotr will open the deletion page where there is one, and forget the rest.`
+          ),
+          el(
+            "div",
+            { className: "actions" },
+            el("button", { className: "button", onclick: close }, "Cancel"),
+            el("button", { className: "button", onclick: () => (close(), remove(ids, false)) }, "Remove from History"),
+            el("button", { className: "button danger", onclick: () => (close(), remove(ids, true)) }, "Delete")
+          )
+        );
+        scrim.addEventListener("click", close);
+        document.body.append(scrim, sheet);
+        animate(scrim, [{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "ease-out" });
+        animate(sheet, [{ transform: "translateY(-100%)" }, { transform: "none" }], { spring: "smooth" });
+        sheet.querySelector(".danger").focus();
+        sheet.addEventListener("keydown", (event) => event.key === "Escape" && close());
+      }
+
+      // ---- Context menu ----------------------------------------------------------------------
+
+      let menu = null;
+
+      function closeMenu() {
+        menu?.remove();
+        menu = null;
+      }
+
+      function openMenu(x, y) {
+        closeMenu();
+        const ids = [...selected];
+        const one = ids.length === 1 ? items.find((item) => item.id === ids[0]) : null;
+        const entry = (label, shortcut, action, extra = {}) =>
+          el("button", { role: "menuitem", onclick: () => (closeMenu(), action()), ...extra }, el("span", {}, label), shortcut ? el("kbd", {}, shortcut) : null);
+        menu = el(
+          "div",
+          { className: "menu", role: "menu" },
+          entry(ids.length > 1 ? `Copy ${ids.length} Links` : "Copy Link", "⌘C", () => copy(ids)),
+          entry("Open in Browser", "↩", () => ids.forEach((id) => invoke("history_open", { id }))),
+          el("hr"),
+          entry(one && !one.deletable ? "Remove…" : "Delete…", "⌫", () => confirmDelete(ids), { className: "danger" })
+        );
+        document.body.append(menu);
+        const box = menu.getBoundingClientRect();
+        menu.style.left = `${Math.min(x, innerWidth - box.width - 6)}px`;
+        menu.style.top = `${Math.min(y, innerHeight - box.height - 6)}px`;
+        animate(menu, [{ opacity: 0, transform: "scale(0.96)" }, { opacity: 1, transform: "none" }], { duration: 120, easing: "ease-out" });
+        menu.querySelector("button").focus({ preventScroll: true });
+      }
+
+      document.addEventListener("pointerdown", (event) => {
+        if (menu && !menu.contains(event.target)) closeMenu();
+      });
+
+      // ---- Keyboard --------------------------------------------------------------------------
+
+      document.addEventListener("keydown", (event) => {
+        if (event.target === search) {
+          if (event.key === "Escape") {
+            search.value = "";
+            render();
+            list.focus();
+          }
+          return;
+        }
+        if (menu) {
+          if (event.key === "Escape") closeMenu();
+          return;
+        }
+        if (document.querySelector(".sheet")) return;
+        const meta = event.metaKey;
+        if (meta && event.key === "f") return (event.preventDefault(), search.focus());
+        if (meta && event.key === "w") return (event.preventDefault(), appWindow.close());
+        if (meta && event.key === "a") {
+          event.preventDefault();
+          selected = new Set(visibleItems().map((item) => item.id));
+          for (const card of list.querySelectorAll(".card")) card.setAttribute("aria-selected", "true");
+          return setStatus(`${selected.size} selected`);
+        }
+        if (meta && event.key === "c") return (event.preventDefault(), copy([...selected]));
+        if (event.key === "Enter") return [...selected].forEach((id) => invoke("history_open", { id }));
+        if (event.key === "Backspace" || event.key === "Delete") return selected.size && confirmDelete([...selected]);
+        const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: columns(), ArrowUp: -columns() }[event.key];
+        if (step) {
+          event.preventDefault();
+          moveSelection(step, event.shiftKey);
+        }
+      });
+
+      list.addEventListener("click", (event) => {
+        if (event.target === list || event.target.classList.contains("grid") || event.target.classList.contains("day")) {
+          selected = new Set();
+          for (const card of list.querySelectorAll(".card")) card.setAttribute("aria-selected", "false");
+          setStatus("");
+        }
+      });
+
+      search.addEventListener("input", () => render());
+      document.getElementById("upload").addEventListener("click", () => invoke("upload_chooser"));
+
+      // ---- Live updates and drops ------------------------------------------------------------
+
+      async function load({ animateIn = false } = {}) {
+        items = await invoke("history_list");
+        const known = new Set(items.map((item) => item.id));
+        selected = new Set([...selected].filter((id) => known.has(id)));
+        render({ animateIn });
+      }
+
+      tauri.event.listen("history-changed", () => load());
+      tauri.event.listen("tauri://file-drop", (event) => {
+        const paths = event.payload || [];
+        if (paths.length) invoke("upload_files", { paths });
+      });
+
+      load({ animateIn: true })
+        .catch((error) => setStatus(`Couldn't load history: ${error}`))
+        .finally(async () => {
+          await appWindow.show();
+          await appWindow.setFocus();
+        });
+    </script>
+  </body>
+</html>
