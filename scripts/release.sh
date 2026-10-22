@@ -88,8 +88,11 @@ if [ "$PUBLISH" -ne 1 ]; then
 fi
 
 echo "==> Publishing v$VERSION to $GITHUB_REPO"
+# Screenshotr.dmg is an unversioned copy, so the website can always link to
+# /releases/latest/download/Screenshotr.dmg.
+cp "$DMG" "$OUT/Screenshotr.dmg"
 gh release create "v$VERSION" --repo "$GITHUB_REPO" --title "Screenshotr $VERSION" --generate-notes \
-  "$DMG" "$UPDATE" "$UPDATE.sig" "$OUT/latest.json"
+  "$DMG" "$OUT/Screenshotr.dmg" "$UPDATE" "$UPDATE.sig" "$OUT/latest.json"
 
 echo "==> Updating the cask in $TAP_REPO"
 CASK_PATH="Casks/screenshotr.rb"
