@@ -1,0 +1,2 @@
+site/** linguist-documentation
+src/*.html linguist-detectable=false
